@@ -656,3 +656,49 @@ grafts verbatim:
   `mediatek,mt6833-wdt\0mediatek,mt6589-wdt` so the mainline mtk-wdt binds,
   watchdog0 appears, and the init's watchdog daemon keeps the phone alive
   for the full five-minute probe window.
+
+## M1 STAGE 2: FULL FIRST LIGHT ON THE MAINLINE KERNEL (2026-10-27, 23:15)
+
+** graft iteration 1 = complete success.** The boot image (fresh v7.2 kernel,
+stock-DTB base + grafted t-phy/MUSB + toprgu compatible patch, matching
+vbmeta_b) booted slot B and delivered the full first light:
+
+```
+[    3.433656] probe of musb-hdrc.1.auto returned 0
+[   26.972157] configfs-gadget.camellian gadget.0: HOST MAC 7e:f1:d1:57:7b:08
+[   26.975202] omamobile-camellian: USB gadget bound to musb-hdrc.1.auto
+[   26.999186] omamobile-camellian: SSH ready: root@172.16.42.1; all UFS storage read-only
+[    3.963833] mtk-wdt 10007000.toprgu: Watchdog enabled (timeout=31 sec, nowayout=0)
+[   26.957532] omamobile-camellian: watchdog0 armed
+[  305.440466] omamobile-camellian: five-minute first-light ceiling reached
+[  305.740667] reboot: Restarting system with command 'bootloader'
+```
+
+The probe ran the full 300 s, returned to fastboot, re-probed TWICE more
+(the armed chain re-selects B), then fell back to Android (slot A intact,
+`sys.boot_completed=1`). The host observed the gadget + SSH continuously
+across all three epochs with only transient re-enumerations.
+
+**The reproducible mainline recipe:**
+1. Kernel: v7.2.0-omamobile (Image, plain gzip) — any build of the tree
+2. DTB: **stock camellian DTB** (LK-accepted base) + graft:
+   - `t-phy@11e40000` + `usb@11200000` copied VERBATIM from the A22X DTB
+     (all their phandle refs — topckgen 0x30, infracfg_ao 0x2f,
+     dummy26m 0xf1 — resolve identically in the stock tree; 0x1be/0x1c0/0x1c1
+     are free)
+   - `toprgu@10007000` compatible extended with
+     `mediatek,mt6833-wdt\0mediatek,mt6589-wdt` (mainline mtk-wdt binds,
+     watchdog0 appears, the init's daemon feeds it)
+3. Boot image: mkbootimg v2 + `add_hash_footer --algorithm SHA256_RSA4096`
+   + matching vbmeta_b (`make_vbmeta_image --flags 1
+   --include_descriptors_from_image boot_b.img`)
+4. Flash **boot_b + vbmeta_b** together; misc arm; `set_active b`; 240 s
+   dwell; reboot.
+
+Known imperfections (non-blocking):
+- One WARN: MUSB DMA addr overflow (64-bit DMA address vs 32-bit controller
+  mask) during the NCM notify — harmless, the NCM works.
+- A built-in `g_mass_storage` gadget probe fails -22 before our configfs
+  gadget binds — harmless.
+- microSD: msdc0/msdc1 bound but no card appears — the MT6360 SD-power path
+  (LDO3/LDO5) needs the mainline-shaped mt6360 node (graft iteration 2).
