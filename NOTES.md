@@ -569,3 +569,36 @@ Android.** Consequences, retroactively:
 
 A fresh RSA4096 test key lives at /tmp/avb_test_key.pem (regenerate freely —
 any key works, rejection is non-fatal; flags=1 keeps verification disabled).
+
+## The actual gate: LK dies patching the shrunk DTB (2026-10-27, deep night II)
+
+The matching vbmeta_b cycle still produced zero markers — AVB was a red
+herring (the in-flash vbmeta_a/b are the user's Lineage-era images; the
+"Public key rejected" line is a non-fatal warning; and the matching-vbmeta
+test changed nothing).
+
+The armed-cycle records then gave the real sequence. For every shrunk-DTB
+image (mainline *and* the 4 KB stub):
+
+```
+decompress_kernel takes 0 ms        <- our kernel decompresses fine
+... spmfw / scp / modem load ...    <- normal LK platform flow
+ccci_realloc_map_mem ...            <- last LK lines, ~2.4 s in
+                                      (silence, ~15 s WDT, reset)
+```
+
+The armed LK never reaches "send cmdline" / "booting linux" / the jump. It
+dies silently in the post-modem DTB-patch phase. The stock-DTB cycles (the
+push5 first light) passed this point and jumped — because **the first light
+used the stock DTB; every shrunk-DTB test used the A22X DTB**.
+
+The final-try records with `jump=True` were the **slot-A fallback boot**
+(their `booting linux` line carries boot_a's ramdisk size, 17,993,071, and
+boot_a's 13.4 MB kernel = the constant ~363 ms decompress). The mainline
+kernel has never executed.
+
+**Prime suspect:** the `/memory` node. The preloader's own `orig_dram` table
+declares two 2 GB ranges (0x40000000+0x80000000, 0xC0000000+0x80000000).
+The A22X DTB declared one 4 GB range — `reg = <0x0 0x40000000 0x1 0x0>` —
+whose size has a **nonzero high word**; an LK 32-bit DTB patcher reads that
+size as 0. **min6** rewrites `/memory` to the two 2 GB `orig_dram` ranges.
