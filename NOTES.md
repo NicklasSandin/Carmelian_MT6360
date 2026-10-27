@@ -702,3 +702,27 @@ Known imperfections (non-blocking):
   gadget binds — harmless.
 - microSD: msdc0/msdc1 bound but no card appears — the MT6360 SD-power path
   (LDO3/LDO5) needs the mainline-shaped mt6360 node (graft iteration 2).
+
+## microSD dependency chain (mapped for graft iteration 2)
+
+The Android-side regulator map + DT analysis fix the wiring:
+
+- **The microSD slot = `msdc@11240000`** — its `vmmc-supply = <0xa0>` is the
+  **mt6360 LDO1 (VFP)** (Android: `VFP state=enabled users=1`); msdc0
+  (11230000) uses the mt6359 `vs1` buck. This matches the M1 design note
+  (SD power via the MT6360).
+- The mainline mtk-sd match table has **no** `mediatek,msdc` and **no**
+  mt6833 entry → msdc never probed. Plan: extend the msdc compatible list
+  with `mediatek,mt6779-mmc` (closest upstream IP match; the A22X kernel's
+  mtk-sd has no mt6833 either — their SD was untested in that snapshot).
+- The mainline **mt6360 MFD binds `mediatek,mt6360` on the i2c5 bus**
+  (device 5-0034); the vendor-shaped `mt6360_pmu_dts` container node never
+  binds it, so LDO1 never registers and msdc1 defers forever. Plan: add a
+  mainline-shaped `mediatek,mt6360` child under the i2c5 node with the
+  regulator subnodes (LDO1/VFP for vmmc), keeping the vendor node for LK.
+- The pwrap driver (mtk-pmic-wrap.c) **has** `mediatek,mt6833-pwrap` and the
+  node matches — but the probe returned -22 tonight; debug with live SSH
+  (dmesg + /sys) next session.
+- Note: with live SSH on the mainline kernel, graft iterations no longer
+  need pstore archaeology — `dmesg` over SSH gives the probe results in
+  seconds, and each graft lands while the previous console is still fresh.
