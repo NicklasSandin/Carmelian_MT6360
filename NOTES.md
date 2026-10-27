@@ -529,3 +529,43 @@ calls execute. One boot cycle brackets the death point:
 - no markers → LK never entered the image
 - marker 1 only → stext bytes are garbage (truncation) → shrink the kernel
 - markers 1+2(+3) → early head.S runs → probe deeper with more canaries
+
+## THE REAL GATE: vbmeta_b hash verification (2026-10-27, deep night)
+
+The canary experiment returned **zero markers** — and so did a 4 KB
+kernel-shaped stub whose only content was a marker-writing loop. The flash
+was byte-verified (boot_b == stub image). LK's log in the same cycle then
+gave the answer:
+
+```
+[2010] kernel real kernel_sz=0x00cc790b     <- boot_a's kernel blob size!
+[1438] avb_slot_verify.c: vbmeta_a: Public key used to sign data rejected.
+[2374] [PROFILE] decompress_kernel takes 364 ms
+[2582] booting linux @ 0x40080000, ramdisk @ 0x51100000 (17993071)
+```
+
+**The slot-B final try never loads boot_b when its hash doesn't match
+vbmeta_b's descriptor — it silently loads boot_a's kernel instead and boots
+Android.** Consequences, retroactively:
+
+- The "mainline kernel 246-second runs" of the earlier sessions were the
+  Android fallback; the mainline kernel has **never executed**.
+- The push5 first light worked because its boot_b was the one image whose
+  hash matched the vbmeta_b then in flash.
+- The phone's vbmeta_a/vbmeta_b are the user's own Lineage-era builds
+  (flags=1, key sha1 2597c218…, fingerprint "lineage_camellia"); vbmeta_b
+  chains `boot` to key sha1 cdbb7717… — an unsigned add_hash_footer boot_b
+  can never pass that chain.
+- The vbmeta *signature* rejection is non-fatal (vbmeta_a's key is rejected
+  yet Android boots) — so a fresh vbmeta_b with **direct hash descriptors**
+  for our boot_b/dtbo_b and flags=1 needs no private key at all.
+
+**The fix now in the tree:** for every new boot image,
+1. `avbtool add_hash_footer --algorithm SHA256_RSA4096 --key <new key>`
+   (a signature block is required for `--include_descriptors_from_image`)
+2. `avbtool make_vbmeta_image --flags 1 --key <key>
+   --include_descriptors_from_image boot_b.img`
+3. flash `boot_b` **and** `vbmeta_b` together, every time.
+
+A fresh RSA4096 test key lives at /tmp/avb_test_key.pem (regenerate freely —
+any key works, rejection is non-fatal; flags=1 keeps verification disabled).
