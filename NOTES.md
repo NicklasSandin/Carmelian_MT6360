@@ -622,3 +622,37 @@ boot the mainline kernel with it. Expected outcomes:
 - Once the kernel is alive, graft the A22X device bits (USB PHY/MUSB clocks,
   MT6360, msdc1) into the stock DTB one node at a time — guided by the
   captured dmesg instead of guesswork.
+
+## FIRST LIGHT ON THE MAINLINE KERNEL — the DTB was the gate (2026-10-27, deep night IV)
+
+The stock-DTB cycle changed everything:
+
+- `console-ramoops-2` (a NEW numbered record, root-owned) appeared with
+  **genuine mainline dmesg** — mainline initcalls, no vendor prefixes.
+- The init ran: `omamobile-camellian: RAM-only first light:
+  7.2.0-omamobile-push1+`, `CPUs: 0-7; MemTotal: 2771348 kB`.
+- The kernel lived ~28 s; the last console line is `crng init done` at
+  27.9 s. Death mechanism: the LK-armed hardware watchdog — `watchdog0
+  missing` (the stock DTB's watchdog node is `toprgu@10007000` with
+  compatible `mediatek,toprgu` only; the mainline mtk-wdt never bound, so
+  nothing fed the WDT LK had armed). The USB-recovery/5-min timers never
+  got their chance.
+- USB: **the stock DTB has no USB nodes at all** (usb@11200000,
+  t-phy@11e40000 are absent — the vendor kernel gets USB from platform
+  code), so MUSB/PHY never probed and no UDC existed. pwrap probed -22.
+- The stock DTB's /memory (≈1 GB placeholder) is fixed up by LK itself —
+  the kernel saw the real 2.77 GB. LK's patch phase is happy with the
+  stock DTB.
+
+**The correct architecture: the stock DTB as the LK-accepted base, with
+A22X nodes grafted in.** The two DTBs share lineage — clock-controller
+compatibles are identical, and the relevant phandles resolve to the same
+values (topckgen=0x30, infracfg_ao=0x2f, dummy26m=0xf1 in BOTH). Iteration 1
+grafts verbatim:
+- `t-phy@11e40000` (+ its `usb-phy@0` child, phandles 0x1c0/0x1be free in
+  the stock tree)
+- `usb@11200000` (MUSB, dr_mode=peripheral)
+- `toprgu@10007000` compatible extended with
+  `mediatek,mt6833-wdt\0mediatek,mt6589-wdt` so the mainline mtk-wdt binds,
+  watchdog0 appears, and the init's watchdog daemon keeps the phone alive
+  for the full five-minute probe window.
