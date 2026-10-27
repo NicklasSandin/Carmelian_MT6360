@@ -488,3 +488,44 @@ session nailed the full chain:
 Expected result: after the next slot-B cycle, Android's
 `/sys/fs/pstore/console-ramoops` holds the **mainline kernel's dmesg** —
 finally visible MUSB/t-phy, msdc1/mt6360 and UFS probe logs.
+
+## Silent-death forensics: the mainline kernel never executes (2026-10-27, night)
+
+The min5 console-visibility fix produced **no mainline console** — Android's
+`console-ramoops` still held stock content. expdb told the rest:
+
+- The armed cycles are fast now (~3 s each, `decompress_kernel` runs, no jump —
+  the known armed-path gate). Final try: full cmdline (1749 chars, ramoops
+  args included), `decompress_kernel takes 364 ms`, `[LK]jump to K64
+  0x40080000`, then ATF/GZ/MTEE logs… and **zero kernel console** anywhere.
+- The expdb record's post-jump gap (583 KB) is ATF/MTEE firmware logs plus
+  stale RAM_CONSOLE leftovers — the mainline kernel wrote nothing, because it
+  has no MTK ram_console driver AND because it dies before any console.
+- Android was back ~95 s after reboot: the kernel dies in ≤ a few seconds.
+
+Image forensics (`Image.raw`, 56,173,056 B, version
+`7.2.0-omamobile-push1+`, clang 18):
+- Modern EFI-stub header: `prfum` MZ-instruction at +0 (harmless, cannot
+  fault), `b stext` at +4, text_offset=0, image_size=0x3750000, ARMd magic,
+  PE header at +0x40, NOP padding to ~0x40000.
+- **stext sits at +0x2A280F8 (~44 MB into the image)**; stock kernel: +28 MB
+  of 36.6 MB. Real code confirmed at both branch targets.
+- The A22X `/memory` node (`<0x0 0x40000000 0x1 0x0>` = 4 GB span) matches
+  the preloader mblock table's DRAM top (0x140000000) **exactly** — memory is
+  not the bug.
+- The synthetic MTK DTB container wrapper is byte-identical to stock except
+  the two size fields — wrapper cleared.
+- Prime suspect: **LK's kernel-decompress buffer limit**. Stock blob
+  36.6 MB boots; ours is 56 MB with stext at +44 MB — truncation anywhere
+  below that kills the branch target → branch into garbage → silent death,
+  exactly as observed.
+
+**Canary experiment** (`Image.canary`): three ARM64 stubs shadow the entry
+path, each writing a distinct marker into the ramoops console prz
+(`CAML` + 1/2/3 at 0x4809000C/10/14) before re-executing the shadowed
+instruction and continuing. Marker 1 = LK jumped and executed the entry;
+marker 2 = stext bytes survived decompression; marker 3 = the first two stext
+calls execute. One boot cycle brackets the death point:
+- no markers → LK never entered the image
+- marker 1 only → stext bytes are garbage (truncation) → shrink the kernel
+- markers 1+2(+3) → early head.S runs → probe deeper with more canaries
