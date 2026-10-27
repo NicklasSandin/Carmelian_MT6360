@@ -1,0 +1,239 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# Xiaomi camellian RAM-only first light. Never mount or write Android storage.
+#
+# The stock MT6833 kernel ships without devtmpfs (CONFIG_DEVTMPFS and
+# CONFIG_UEVENT_HELPER are both unset), so /dev is populated by hand plus
+# `mdev -s` re-scans. PID 1 must never exit: a single exit panics the kernel
+# ("Attempted to kill init!"), the slot falls back to A and the evidence dies
+# with the boot. Every failure below is reported and survived instead.
+export PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# The cpio ships an empty /dev and the kernel could not open an initial
+# console. Create the console nodes on the writable rootfs first so the first
+# marker and every later say() land in kmsg and on the console.
+mknod -m 600 /dev/console c 5 1 2>/dev/null || true
+mknod -m 666 /dev/null c 1 3 2>/dev/null || true
+mknod -m 660 /dev/kmsg c 1 11 2>/dev/null || true
+echo "omamobile-camellian: init started (pid $$)" > /dev/console 2>/dev/null || true
+
+say() {
+  echo "omamobile-camellian: $*" > /dev/kmsg 2>/dev/null
+  echo "omamobile-camellian: $*" > /dev/console 2>/dev/null
+  echo "omamobile-camellian: $*" > /dev/tty0 2>/dev/null
+  return 0
+}
+
+# A kernel panic deliberately halts during the slot-B probe. Automatic reboot
+# could loop a slot which Xiaomi still marks successful. Userspace failures use
+# the freestanding restart2 helper below to return to fastboot instead.
+mount -t tmpfs tmpfs /dev || say "tmpfs /dev mount failed; using rootfs /dev"
+mknod -m 600 /dev/console c 5 1 2>/dev/null || true
+mknod -m 666 /dev/null c 1 3 2>/dev/null || true
+mknod -m 660 /dev/kmsg c 1 11 2>/dev/null || true
+mknod -m 660 /dev/tty0 c 4 0 2>/dev/null || true
+mknod -m 666 /dev/ptmx c 5 2 2>/dev/null || true
+
+mount -t proc proc /proc || say "proc mount failed; continuing"
+mount -t sysfs sysfs /sys || say "sysfs mount failed; continuing"
+# No uevent helper exists, so populate /dev from sysfs once now and again
+# later when hotplugged devices such as ttyGS0 appear.
+mdev -s || say "mdev scan failed; continuing"
+mkdir -p /dev/pts /run /sys/kernel/config
+mount -t devpts devpts /dev/pts || say "devpts mount failed; continuing"
+mount -t tmpfs tmpfs /run || say "tmpfs /run mount failed; continuing"
+mount -t configfs configfs /sys/kernel/config || say "configfs mount failed; continuing"
+mkdir -p /sys/fs/pstore
+mount -t pstore pstore /sys/fs/pstore 2>/dev/null || true
+
+return_to_bootloader() {
+  say "$*; returning to bootloader"
+  sync
+  /sbin/reboot-bootloader
+  say "restart2 failed; halting through panic"
+  echo 1 > /proc/sys/kernel/sysrq 2>/dev/null || true
+  echo c > /proc/sysrq-trigger
+  while :; do sleep 60; done
+}
+
+# UFS may enumerate on any SCSI disk name. There is deliberately no writable
+# exception for a boot slot, userdata or calibration/NV storage. The external
+# microSD is mmcblk0 and is only reported by this probe, never mounted.
+storage_guard() {
+  local s name
+  for s in /sys/class/block/sd*; do
+    [ -r "$s/ro" ] || continue
+    name=${s##*/}
+    [ -b "/dev/$name" ] || continue
+    [ "$(cat "$s/ro")" = 1 ] && continue
+    if ! blockdev --setro "/dev/$name" || [ "$(cat "$s/ro")" != 1 ]; then
+      say "FAILED to protect /dev/$name; stopping first light"
+      return 1
+    fi
+  done
+}
+storage_guard || return_to_bootloader "initial UFS guard failed"
+(
+  while :; do
+    if ! storage_guard; then
+      killall dropbear getty 2>/dev/null
+      return_to_bootloader "runtime UFS guard failed"
+    fi
+    mdev -s 2>/dev/null || true
+    sleep 1
+  done
+) &
+
+# A successful first-light session is intentionally temporary even though it
+# was loaded from boot_b. Return to fastboot so the host can select slot A.
+(
+  sleep 300
+  return_to_bootloader "five-minute first-light ceiling reached"
+) &
+
+hostname omamobile-camellian
+say "RAM-only first light: $(uname -r)"
+say "CPUs: $(cat /sys/devices/system/cpu/online); $(grep MemTotal /proc/meminfo)"
+
+# Report the microSD without opening its filesystem.
+for _ in $(seq 1 20); do
+  [ -b /dev/mmcblk0p1 ] && break
+  sleep 1
+done
+# Scan for the microSD on any mmcblk device (the mainline kernel may
+# enumerate it as mmcblk0, mmcblk1, or mmcblk2 depending on probe order).
+sd_dev=""
+for sd in /dev/mmcblk*p1; do
+  [ -b "$sd" ] && sd_dev="$sd" && break
+done
+if [ -n "$sd_dev" ]; then
+  say "microSD present: $sd_dev"
+  mkdir -p /mnt
+  if mount -t ext4 "$sd_dev" /mnt 2>/dev/null; then
+    say "microSD mounted; writing diagnostics"
+    {
+      echo "=== mainline kernel diagnostic ==="
+      echo "=== $(cat /proc/uptime) ==="
+      uname -a
+      echo; echo "--- cmdline:"; cat /proc/cmdline
+      echo; echo "--- dmesg:"; dmesg
+      echo; echo "--- udc:"; ls /sys/class/udc/ 2>/dev/null
+      echo "--- udc state:"; cat /sys/class/udc/*/state 2>/dev/null
+      echo "--- gadget:"; ls /sys/kernel/config/usb_gadget/*/UDC 2>/dev/null
+      cat /sys/kernel/config/usb_gadget/*/UDC 2>/dev/null
+      echo; echo "--- block devices:"; cat /proc/partitions
+      echo; echo "--- meminfo:"; head -3 /proc/meminfo
+      echo; echo "--- musb:"; ls /sys/devices/platform/*/musb* 2>/dev/null
+      find /sys/devices/platform -name "musb*" -o -name "usb*" 2>/dev/null | head -10
+      echo; echo "--- phy:"; ls /sys/class/phy/ 2>/dev/null
+      echo; echo "--- i2c:"; ls /sys/bus/i2c/devices/ 2>/dev/null
+      echo; echo "--- pinctrl:"; head -3 /sys/kernel/debug/pinctrl/pinctrl-rockchip-pinctrl/pinmux-pins 2>/dev/null
+    } > /mnt/diag-mainline.txt 2>&1
+    sync
+    umount /mnt 2>/dev/null
+    say "diagnostics written to microSD"
+  else
+    say "microSD mount failed"
+    # Raw write as fallback: write the diagnostic to the first 64KB
+    dmesg > /dev/mmcblk0p1 2>/dev/null || true
+  fi
+else
+  say "no microSD found on any mmcblk*"
+  # Also try pmsg (pstore user message)
+  if [ -c /dev/pmsg0 ]; then
+    dmesg > /dev/pmsg0 2>/dev/null
+    say "diagnostics written to pmsg0"
+  fi
+fi
+
+# Keep the bootloader-started watchdog alive while the probe is useful. The
+# independent USB recovery timer below still forces a reset if first light
+# cannot be reached from the host.
+if [ -c /dev/watchdog0 ]; then
+  watchdog -F -t 5 -T 45 /dev/watchdog0 &
+  say "watchdog0 armed"
+else
+  say "watchdog0 missing; USB recovery timer remains active"
+fi
+
+# CDC NCM networking plus ACM serial, matching the shared Omarchy initramfs.
+g=/sys/kernel/config/usb_gadget/camellian
+mkdir -p "$g/strings/0x409" "$g/configs/c.1/strings/0x409"
+echo 0x1d6b > "$g/idVendor" 2>/dev/null || say "gadget setup failed (configfs)"
+echo 0x0104 > "$g/idProduct" 2>/dev/null || true
+echo "Omarchy Mobile" > "$g/strings/0x409/manufacturer" 2>/dev/null || true
+echo "Redmi Note 10 5G (RAM-only first light)" > "$g/strings/0x409/product" 2>/dev/null || true
+echo omamobile-camellian > "$g/strings/0x409/serialnumber" 2>/dev/null || true
+echo "NCM + ACM" > "$g/configs/c.1/strings/0x409/configuration" 2>/dev/null || true
+mkdir -p "$g/functions/ncm.usb0" "$g/functions/acm.GS0" 2>/dev/null || true
+ln -s "$g/functions/ncm.usb0" "$g/configs/c.1/" 2>/dev/null || true
+ln -s "$g/functions/acm.GS0" "$g/configs/c.1/" 2>/dev/null || true
+
+udc=""
+for _ in $(seq 1 30); do
+  for controller in /sys/class/udc/*; do
+    [ -e "$controller" ] && udc=${controller##*/} && break
+  done
+  [ -n "$udc" ] && break
+  sleep 1
+done
+if [ -n "$udc" ] && echo "$udc" > "$g/UDC" 2>/dev/null; then
+  say "USB gadget bound to $udc"
+else
+  say "no USB device controller; recovery timer will reset the phone"
+fi
+
+# busybox here has no `ip` applet; ifconfig fills the same role.
+ifconfig lo up 2>/dev/null || say "loopback setup failed"
+for _ in $(seq 1 10); do
+  ifconfig usb0 >/dev/null 2>&1 && break
+  mdev -s 2>/dev/null || true
+  sleep 1
+done
+ifconfig usb0 172.16.42.1 netmask 255.255.255.0 up 2>/dev/null || \
+  say "usb0 address failed; SSH will not bind"
+cat > /run/udhcpd.conf <<'CONF'
+start 172.16.42.2
+end 172.16.42.2
+interface usb0
+option subnet 255.255.255.0
+lease_file /run/udhcpd.leases
+CONF
+touch /run/udhcpd.leases 2>/dev/null || true
+udhcpd /run/udhcpd.conf 2>/dev/null || true
+
+# Public-key authentication only. Host keys live in RAM.
+mkdir -p /etc/dropbear
+dropbear -R -E -s -j -k -p 172.16.42.1:22 2>/dev/null && \
+  say "SSH ready: root@172.16.42.1; all UFS storage read-only" || \
+  say "dropbear did not start; ACM serial remains"
+
+(
+  while :; do
+    [ -c /dev/ttyGS0 ] || mdev -s 2>/dev/null || true
+    setsid getty -n -l /bin/sh 115200 ttyGS0 vt100
+    sleep 1
+  done
+) &
+
+# If the host never configures USB, or later disconnects for 90 seconds,
+# return to fastboot. Do not reboot the active slot B automatically.
+(
+  missing=0
+  while :; do
+    if grep -qx configured /sys/class/udc/*/state 2>/dev/null; then
+      missing=0
+    else
+      missing=$((missing + 1))
+    fi
+    if [ "$missing" -ge 90 ]; then
+      return_to_bootloader "USB unavailable for 90 s"
+    fi
+    sleep 1
+  done
+) &
+
+say "init finished setup; first light is up"
+while :; do
+  sleep 60
+done
