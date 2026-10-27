@@ -726,3 +726,30 @@ The Android-side regulator map + DT analysis fix the wiring:
 - Note: with live SSH on the mainline kernel, graft iterations no longer
   need pstore archaeology — `dmesg` over SSH gives the probe results in
   seconds, and each graft lands while the previous console is still fresh.
+
+## Graft iterations 2-5 (2026-10-28, morning): the microSD chase
+
+With live SSH the graft loop is minutes instead of hours. Results:
+
+- **iteration 2**: pwrap slave compatible (`mt6359-pmic` → `mt6359`) made
+  the pwrap bind and the i2c compatibles (`mediatek,i2c` → append
+  `mediatek,mt8183-i2c`) probed **all 8 I2C adapters**.
+- **iteration 3**: the mt6359 MFD oopsed inside an initcall
+  (`mt6358_irq_init` NULL deref → `Attempted to kill init`) — **reverted**
+  (the microSD path doesn't need the mt6359; the pwrap stays unbound -22).
+- **iteration 4/5**: the pinctrl graft (the A22X `mediatek,mt6833-pinctrl`
+  node replacing the vendor GPIO controller, phandle 0x02 inherited) bound
+  after the `gpio-ranges` self-reference fix. **The A22X DTB turns out to
+  be written for exactly this phone** (`compatible = "xiaomi,camellian"`)
+  and already contains a complete mainline `mmc@11240000` node
+  (mt8183-mmc, source/hclk/source_cg, mmc1-pins, `no-1-8-v`) plus fixed
+  3.3 V SD regulators — the graft now uses those verbatim.
+- **iteration 6**: the msdc1 host probes fully (`Got CD GPIO`), the CD
+  line reads hi with the IRQ armed, the clock mux runs at 192 MHz — and
+  every SD command (ACMD41, IF_COND) times out.
+
+Current open question: whether a card is physically in the slot (the CD
+polarity in the A22X node is active-high; "hi" should mean present). If the
+card is present, the next suspects are the `source_cg` wiring (optional for
+mt8183-mmc but currently pointing at an infracfg_ao index from the vendor
+space) and the pad/power sequencing.
