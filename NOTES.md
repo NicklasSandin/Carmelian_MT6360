@@ -438,3 +438,53 @@ boot itself. The current image contains only open-source
 userspace and the developer's public SSH key, not vendor firmware or private
 keys. The slot-B bundle adds a 64 MiB AVB footer, a valid no-op DTBO and an
 8 MiB verification-disabled vbmeta image; it is not a generic installer.
+
+## Ramoops root cause found: `no-map` blocks mainline's memremap (2026-10-27, late)
+
+The mainline kernel has been flying blind — no console ever came back. This
+session nailed the full chain:
+
+1. **Android reads `console-ramoops`** (262132 bytes = exactly the 0x40000
+   `console_size`). Stock config: `CONFIG_PSTORE_RAM=y`, `CONFIG_PSTORE_CONSOLE=y`,
+   `CONFIG_PSTORE_PMSG=y`. LK appends `ramoops.mem_address=0x48090000
+   ramoops.mem_size=0xe0000 ramoops.console_size=0x40000 ramoops.pmsg_size=0x10000`
+   to the cmdline itself (the stock boot image cmdline is bare `bootopt=...`).
+2. **The mainline Image HAS the driver.** IKCONFIG extracted from `IKCFG_ST`
+   at Image offset 0x1b66cc0: `CONFIG_PSTORE_RAM=y`, `CONFIG_PSTORE_CONSOLE=y`,
+   `CONFIG_PSTORE_PMSG=y`, plus `CONFIG_USB_MUSB_MEDIATEK=y`,
+   `CONFIG_USB_MUSB_DUAL_ROLE=y`, `CONFIG_PHY_MTK_TPHY=y`, `CONFIG_MMC_MTK=y`,
+   `CONFIG_SCSI_UFS_MEDIATEK=y`, `CONFIG_MFD_MT6360=y`,
+   `CONFIG_REGULATOR_MT6360=y`, `CONFIG_TYPEC_MT6360=y`, `CONFIG_VFAT_FS=y`,
+   `CONFIG_EXT4_FS=y`. Nothing needs a kernel rebuild for the first dmesg.
+3. **LK passed the ramoops args to the mainline kernel anyway.** expdb rec6
+   (final-try, retry=0): `g_cmdline size: 1749`, full stock cmdline with the
+   ramoops args, `decompress_kernel takes 363 ms`, `[LK]jump to K64 0x40080000`.
+4. **Root cause:** the A22X DTB's `mblock-18-pstore` node carries `no-map`.
+   The mainline ramoops module-param path maps the region with
+   `memremap(WB)`, which cannot map a no-map region (no direct-map alias);
+   the stock 4.14 kernel used `ioremap`, which doesn't care. The *stock*
+   DTB has **no pstore node at all** — the stock kernel relies on the
+   preloader's mblock carve (outside the DTB) plus its own ioremap.
+5. **Second diagnostic bug:** the microSD card is FAT32 and the init only
+   ever tried `mount -t ext4` — the mount could never succeed even if msdc1
+   had probed.
+6. **Bonus channel discovered:** expdb carries the previous boot's FULL
+   kernel console for *stock* boots (MTK's shared ram_console SRAM at
+   0x11d000 is dumped to expdb by LK on the next boot). The mainline kernel
+   has no MTK ram_console driver, so it never feeds this channel — ramoops
+   is the only way to see mainline consoles.
+
+**Fix (min5 + diag3):**
+- `mainline_min5.dts`: `no-map` removed from `mblock-18-pstore` (region
+  stays reserved via reserved-memory, but stays direct-mapped)
+- boot image cmdline now also carries the ramoops args explicitly
+  (duplicate args are harmless — the stock Android cmdline carries them twice)
+- initramfs v3: early pmsg0 snapshot (survives later crashes), periodic
+  60 s pmsg refresh (say log + 20 KB dmesg tail → Android reads
+  `/sys/fs/pstore/pmsg-ramoops-0`), microSD mount tries ext4 then vfat,
+  full dmesg written to `diag-mainline.txt`, **raw block writes removed**
+  (the card holds real user data)
+
+Expected result: after the next slot-B cycle, Android's
+`/sys/fs/pstore/console-ramoops` holds the **mainline kernel's dmesg** —
+finally visible MUSB/t-phy, msdc1/mt6360 and UFS probe logs.

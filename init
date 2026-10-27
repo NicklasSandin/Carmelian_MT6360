@@ -19,6 +19,7 @@ echo "omamobile-camellian: init started (pid $$)" > /dev/console 2>/dev/null || 
 
 say() {
   echo "omamobile-camellian: $*" > /dev/kmsg 2>/dev/null
+  echo "omamobile-camellian: $*" >> /omam.log 2>/dev/null
   echo "omamobile-camellian: $*" > /dev/console 2>/dev/null
   echo "omamobile-camellian: $*" > /dev/tty0 2>/dev/null
   return 0
@@ -45,6 +46,31 @@ mount -t tmpfs tmpfs /run || say "tmpfs /run mount failed; continuing"
 mount -t configfs configfs /sys/kernel/config || say "configfs mount failed; continuing"
 mkdir -p /sys/fs/pstore
 mount -t pstore pstore /sys/fs/pstore 2>/dev/null || true
+: > /omam.log
+
+# Diagnostic channel 1: pstore /dev/pmsg0 (PSTORE_PMSG). With the min5 DTB the
+# mainline kernel's ramoops attaches at 0x48090000 and Android reads the ring
+# back as /sys/fs/pstore/pmsg-ramoops-0 after the probe returns. Write an
+# early snapshot now so evidence survives even a later kernel crash.
+dump_diag() {
+  [ -c /dev/pmsg0 ] || return 0
+  {
+    echo "=== omamobile-camellian diag @ uptime $(cat /proc/uptime 2>/dev/null) ==="
+    uname -a
+    echo "--- say log:"; cat /omam.log 2>/dev/null
+    echo "--- cmdline:"; cat /proc/cmdline 2>/dev/null
+    echo "--- partitions:"; cat /proc/partitions 2>/dev/null
+    echo "--- udc:"; ls /sys/class/udc/ 2>/dev/null
+    cat /sys/class/udc/*/state 2>/dev/null
+    echo "--- pstore:"; ls /sys/fs/pstore/ 2>/dev/null
+    echo "--- i2c:"; ls /sys/bus/i2c/devices/ 2>/dev/null
+    echo "--- regulators:"; grep -H . /sys/class/regulator/*/name 2>/dev/null | head -60
+    echo "--- phy:"; ls /sys/class/phy/ 2>/dev/null
+    echo "--- dmesg tail:"; dmesg 2>/dev/null | tail -c 8000
+  } > /dev/pmsg0 2>&1
+}
+dump_diag
+say "early diag snapshot written to pmsg0"
 
 return_to_bootloader() {
   say "$*; returning to bootloader"
@@ -95,55 +121,53 @@ hostname omamobile-camellian
 say "RAM-only first light: $(uname -r)"
 say "CPUs: $(cat /sys/devices/system/cpu/online); $(grep MemTotal /proc/meminfo)"
 
-# Report the microSD without opening its filesystem.
+# Report the microSD and, if a filesystem we support is on it, write the full
+# diagnostic file. The mainline kernel may enumerate the card as any mmcblkN.
+# No raw block writes: the card is a real FAT32 card with user data on it.
+sd_dev=""
 for _ in $(seq 1 20); do
-  [ -b /dev/mmcblk0p1 ] && break
+  for sd in /dev/mmcblk*p1; do
+    [ -b "$sd" ] && sd_dev="$sd" && break
+  done
+  [ -n "$sd_dev" ] && break
+  mdev -s 2>/dev/null || true
   sleep 1
 done
-# Scan for the microSD on any mmcblk device (the mainline kernel may
-# enumerate it as mmcblk0, mmcblk1, or mmcblk2 depending on probe order).
-sd_dev=""
-for sd in /dev/mmcblk*p1; do
-  [ -b "$sd" ] && sd_dev="$sd" && break
-done
 if [ -n "$sd_dev" ]; then
-  say "microSD present: $sd_dev"
+  say "microSD present: $sd_dev ($(cat /sys/class/block/${sd_dev##*/}/size 2>/dev/null) sectors)"
   mkdir -p /mnt
-  if mount -t ext4 "$sd_dev" /mnt 2>/dev/null; then
-    say "microSD mounted; writing diagnostics"
+  sd_mounted=""
+  for fstype in ext4 vfat; do
+    if mount -t "$fstype" "$sd_dev" /mnt 2>/dev/null; then sd_mounted=$fstype; break; fi
+  done
+  if [ -n "$sd_mounted" ]; then
+    say "microSD mounted as $sd_mounted; writing full diagnostics"
     {
-      echo "=== mainline kernel diagnostic ==="
-      echo "=== $(cat /proc/uptime) ==="
+      echo "=== omamobile-camellian mainline diagnostic ==="
+      echo "=== uptime $(cat /proc/uptime) ==="
       uname -a
       echo; echo "--- cmdline:"; cat /proc/cmdline
-      echo; echo "--- dmesg:"; dmesg
-      echo; echo "--- udc:"; ls /sys/class/udc/ 2>/dev/null
-      echo "--- udc state:"; cat /sys/class/udc/*/state 2>/dev/null
-      echo "--- gadget:"; ls /sys/kernel/config/usb_gadget/*/UDC 2>/dev/null
-      cat /sys/kernel/config/usb_gadget/*/UDC 2>/dev/null
-      echo; echo "--- block devices:"; cat /proc/partitions
-      echo; echo "--- meminfo:"; head -3 /proc/meminfo
-      echo; echo "--- musb:"; ls /sys/devices/platform/*/musb* 2>/dev/null
-      find /sys/devices/platform -name "musb*" -o -name "usb*" 2>/dev/null | head -10
-      echo; echo "--- phy:"; ls /sys/class/phy/ 2>/dev/null
-      echo; echo "--- i2c:"; ls /sys/bus/i2c/devices/ 2>/dev/null
-      echo; echo "--- pinctrl:"; head -3 /sys/kernel/debug/pinctrl/pinctrl-rockchip-pinctrl/pinmux-pins 2>/dev/null
+      echo; echo "--- say log:"; cat /omam.log
+      echo; echo "--- FULL dmesg:"; dmesg
+      echo; echo "--- udc:"; ls -la /sys/class/udc/
+      echo "--- udc state:"; cat /sys/class/udc/*/state
+      echo "--- gadget UDC:"; cat /sys/kernel/config/usb_gadget/*/UDC 2>/dev/null
+      echo "--- musb sysfs:"; find /sys/devices/platform /sys/bus/platform/devices -name "musb*" 2>/dev/null | head
+      echo "--- block:"; cat /proc/partitions; ls -la /sys/class/block/
+      echo "--- i2c:"; ls -la /sys/bus/i2c/devices/
+      echo "--- regulators:"; grep -H . /sys/class/regulator/*/name 2>/dev/null
+      echo "--- phy:"; ls /sys/class/phy/
+      echo "--- pstore:"; ls -la /sys/fs/pstore/
+      echo "--- mounts:"; cat /proc/mounts
     } > /mnt/diag-mainline.txt 2>&1
     sync
     umount /mnt 2>/dev/null
-    say "diagnostics written to microSD"
+    say "diagnostics written to microSD ($sd_mounted)"
   else
-    say "microSD mount failed"
-    # Raw write as fallback: write the diagnostic to the first 64KB
-    dmesg > /dev/mmcblk0p1 2>/dev/null || true
+    say "microSD mount failed (tried ext4, vfat); relying on pmsg0"
   fi
 else
-  say "no microSD found on any mmcblk*"
-  # Also try pmsg (pstore user message)
-  if [ -c /dev/pmsg0 ]; then
-    dmesg > /dev/pmsg0 2>/dev/null
-    say "diagnostics written to pmsg0"
-  fi
+  say "no microSD found on any mmcblk*; relying on pmsg0"
 fi
 
 # Keep the bootloader-started watchdog alive while the probe is useful. The
@@ -233,7 +257,23 @@ dropbear -R -E -s -j -k -p 172.16.42.1:22 2>/dev/null && \
   done
 ) &
 
+# Full diagnostic to pmsg0 (say log + dmesg tail) and then refresh it once a
+# minute so the 64 KB pmsg ring always holds the latest state when the probe
+# returns to Android for collection.
+dump_diag_full() {
+  dump_diag
+  echo "=== dmesg tail (20K) ===" > /dev/pmsg0 2>/dev/null
+  dmesg 2>/dev/null | tail -c 20000 > /dev/pmsg0 2>/dev/null
+}
 say "init finished setup; first light is up"
+dump_diag_full
+say "diag written to pmsg0; entering idle"
+(
+  while :; do
+    sleep 60
+    dump_diag_full 2>/dev/null || true
+  done
+) &
 while :; do
   sleep 60
 done
