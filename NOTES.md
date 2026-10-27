@@ -602,3 +602,23 @@ declares two 2 GB ranges (0x40000000+0x80000000, 0xC0000000+0x80000000).
 The A22X DTB declared one 4 GB range — `reg = <0x0 0x40000000 0x1 0x0>` —
 whose size has a **nonzero high word**; an LK 32-bit DTB patcher reads that
 size as 0. **min6** rewrites `/memory` to the two 2 GB `orig_dram` ranges.
+
+## Strategy pivot: stock DTB first, graft later (2026-10-27, deep night III)
+
+The min6 /memory fix did not unblock the armed path — LK still dies between
+the modem load and "send cmdline", i.e. in the DTB-patch region, with the
+same silence + WDT signature. The DTB *content* is the gate, and binary-
+searching the A22X DTB's 398 removed nodes through 11-minute boot cycles is
+the wrong shape of search.
+
+**Pivot:** start from the DTB LK provably accepts — the stock camellian DTB
+(161 KB container, the exact blob the first-light probe booted with) — and
+boot the mainline kernel with it. Expected outcomes:
+- LK passes its patch phase → armed cycles show `jump=True` for the first
+  time → the mainline kernel executes.
+- Even a 2-second kernel life is enough: `PSTORE_RAM + PSTORE_CONSOLE` are
+  built in and the ramoops args are on the cmdline, so console-ramoops
+  carries the mainline dmesg to Android regardless of where it dies.
+- Once the kernel is alive, graft the A22X device bits (USB PHY/MUSB clocks,
+  MT6360, msdc1) into the stock DTB one node at a time — guided by the
+  captured dmesg instead of guesswork.
