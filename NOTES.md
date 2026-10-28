@@ -790,3 +790,39 @@ Graft iterations 7-8 brought the whole SD chain to life except one link:
    i2c5 pins at all (remove the i2c5-pins state, rely on the LK's config).
 4. The A22X-project route: ask upstream (the DTB is theirs — the i2c nodes
    were never mainlined in their snapshot either).
+
+## Graft iterations 9-11 (2026-10-28, afternoon): the exhaustive sweep
+
+Three more hypotheses tested and eliminated for the mt6360's I2C:
+
+- **iteration 9**: no i2c5 pinctrl state at all (rely on LK's leftover pin
+  config, which successfully reaches the mt6360 every boot) → all NACK.
+- **iteration 8**: `bias-disable` on the i2c5 pins → all NACK.
+- **iteration 11**: `mediatek,mt8186-i2c` (the closest IP-generation
+  compatible to the MT6833's I2C) instead of mt8183 → all NACK.
+- **The kernel-level RSEL clear** (a patch in the mt6833 pinctrl probe,
+  runs at ~1.5 s before any I2C probe): worked mechanically, but the
+  register was **already 0x00000000** — the RSEL theory was wrong, and the
+  "(1 ohms)" pinconf readback is a bogus decode of the PUPD state by the
+  rsel-less driver.
+- **The clock wiring verified**: the i2c5 "main" clock =
+  imp_iic_wrap_w's `impw_ap_i2c5` gate (index matches), "dma" =
+  infracfg_ao; the msdc1's source/hclk/source_cg indices all correct.
+- **The live pin state verified correct**: pins 107/108 muxed to
+  `11e01000.i2c5 func1` (SCL5/SDA5), pulled, Schmitt enabled, claimed by
+  the i2c5 device.
+
+**Conclusion:** every software-inspectable dimension of the I2C5
+configuration matches the expectations, yet the bus stays dead. The
+remaining difference is in vendor pad/timing register territory
+(the vendor driver's `pu_cfg`/`rsel_cfg`/`eh_cfg` writes to registers the
+mainline pinctrl does not model for this SoC) or a hardware signal
+integrity factor only visible with the schematic. The mt6360 probe path
+(the MFD + regulators + the SD power) is fully staged and will work the
+moment the I2C5 bus comes alive.
+
+**Status roll-up:**
+- M1 Stage 2 on the mainline kernel: **PASS** (unchanged).
+- microSD: blocked at the mt6360's I2C — everything else in the chain
+  (msdc1 host, pinctrl, regulators staging, card detect) is in place.
+- The phone: healthy Android slot A; slot B carries the latest graft.
