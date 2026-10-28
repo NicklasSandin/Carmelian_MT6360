@@ -753,3 +753,40 @@ polarity in the A22X node is active-high; "hi" should mean present). If the
 card is present, the next suspects are the `source_cg` wiring (optional for
 mt8183-mmc but currently pointing at an infracfg_ao index from the vendor
 space) and the pad/power sequencing.
+
+## The mt6360 I2C boundary (2026-10-28, midday) — where the microSD work stopped
+
+Graft iterations 7-8 brought the whole SD chain to life except one link:
+- msdc1 (`mtk-msdc 11240000.mmc`) **probes successfully** (the state_uhs
+  pinctrl alias fixed the -ENODEV); the CD GPIO works; the clock tree is
+  correct (msdc30_1_sel at 192 MHz, ifrao_msdc1 at 156 MHz; the A22X DTB's
+  clock indices were right all along — CLK_IFRAO_MSDC1_SRC really is 39).
+- **The mt6360 PMU (i2c5@0x34) does not ACK.** Custom static-aarch64 I2C
+  probe tools (raw-syscall, no libc) were added to the initramfs and found:
+  - Android (vendor kernel) sees FOUR chips on i2c5@11e01000:
+    0x1a, **0x34 (mt6360 PMU)**, **0x4e (mt6360 TCPC)**, **0x64 (mt6360
+    PMIC)** — the mt6360 has three I2C interfaces.
+  - On our kernel the ACKs are **nondeterministic per boot**: one scan saw
+    0x1a+0x4e, the rest saw nothing. `bias-disable` = always dead;
+    `bias-pull-up` (the PUPD bit) = the single 0x4e ACK — the board has no
+    reliable external pull-ups and the internal PUPD pull is marginal.
+- The vendor i2c5 node carries per-pin register configs the mainline driver
+  never applies: `pu_cfg = <0xe0>`, `rsel_cfg = <0x110>`, `eh_cfg = <0x50>`
+  (the pull-up enable/RSEL/Schmitt-trigger bits written directly to the
+  IOCFG_LM block at 0x11e60000). The mt6833 mainline pinctrl has no custom
+  RSEL table, so the DT cannot express them yet.
+
+**Next session's options (in order of cost):**
+1. Read the IOCFG_LM registers for pins 107/108 from our kernel at pinctrl
+   probe time (the reg is in the pinctrl node's reg list) and dump them;
+   compare with the values the vendor driver writes (decode pu_cfg/rsel_cfg
+   from the vendor i2c driver source if it can be found), then express the
+   difference via a custom pinctrl state or a tiny vendor-quirk patch.
+2. Schmitt-trigger experiment: add `input-schmitt-enable` to the i2c5-pins
+   state (one line, one cycle).
+3. Wire the boot-time mt6360 init through LK's leftover state: check whether
+   the LK's mt6360_pmic_i2c_probe leaves the bus powered/configured and
+   whether our pinctrl states clobber it — possibly by NOT touching the
+   i2c5 pins at all (remove the i2c5-pins state, rely on the LK's config).
+4. The A22X-project route: ask upstream (the DTB is theirs — the i2c nodes
+   were never mainlined in their snapshot either).
