@@ -826,3 +826,46 @@ moment the I2C5 bus comes alive.
 - microSD: blocked at the mt6360's I2C — everything else in the chain
   (msdc1 host, pinctrl, regulators staging, card detect) is in place.
 - The phone: healthy Android slot A; slot B carries the latest graft.
+
+## UFS ROOT: the storage chain is alive (2026-10-28, evening)
+
+The critical-path breakthrough: **the UFS works in the mainline kernel.**
+Four fixes, in order:
+
+1. `ufshci` compatible += `mediatek,mt8183-ufshci` (the vendor
+   `mediatek,ufshci` matches nothing)
+2. `vcc-supply` → a fixed always-on 3.3 V regulator (the vendor node even
+   carries `vcc-fixed-regulator`, a flag the mainline driver ignores — the
+   mainline-clean expression is a regulator-fixed node)
+3. `ufs_mphy` compatible += `mediatek,mt8183-ufsphy`
+4. `mediatek,ufs-disable-mcq` — the UFSHCI is a legacy 2016 IP
+   (0x20160706, the same IP as the MT6893); its CAP bit 29 is set, which
+   the mainline 3.0-spec decoder misreads as "legacy doorbell removed".
+   This capability flag sets UFSHCD_QUIRK_BROKEN_LSDBS_CAP and the driver
+   falls back to the legacy single-doorbell mode. The driver already
+   recognised the chipset (`is legacy : 1`) but the quirk was gated on
+   this missing flag.
+
+Result: `scsi host0: ufshcd`, three UFS LUNs (sda/sdb/sdc), and
+**userdata found by PARTNAME at /dev/sdc59, 48.7 GiB** — the same
+partition the Android side maps. The pivot initramfs finds it dynamically
+and was verified live: it correctly refuses an unflashed userdata and
+stays in the probe (the fail-safe works).
+
+The microSD (the mt6360's I2C) is now off the critical path entirely.
+
+## The Omarchy installer (staged and partially verified)
+
+- `device/camellian/initramfs/init`: the Arch-root pivot ported from the
+  upstream initramfs (multi-LUN PARTNAME finder, systemd check, the
+  omamobile.initramfs escape hatch), plus the storage-guard allowlist:
+  userdata is the only writable partition.
+- `device/camellian/install-camellian.sh`: the installer (boot_b + vbmeta_b
+  + `fastboot flash userdata`) using the proven slot-B recipe.
+- `packages/omamobile-device-camellian`: the minimal device package.
+- The descriptor: BOOT_METHOD=ufs-root, UFS_RW="userdata".
+- The rootfs build: `tools/build-packages` (DEVICE=camellian) — the
+  upstream tooling works on this laptop after three fork fixes (the
+  bsdtar install, the repo-add inside the aarch64 container, the keyring
+  trust for our own signing key), and `tools/build-rootfs` takes the
+  modules tarball from out-int/.
