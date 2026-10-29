@@ -869,3 +869,47 @@ The microSD (the mt6360's I2C) is now off the critical path entirely.
   bsdtar install, the repo-add inside the aarch64 container, the keyring
   trust for our own signing key), and `tools/build-rootfs` takes the
   modules tarball from out-int/.
+
+## 2026-10-29: the MUSB DMA overflow is THE blocker for large USB transfers
+
+Every USB data crash this session traces to one root cause: the MUSB
+controller's DMA engine is limited to 32-bit addresses (mask ffffffff)
+but the kernel allocates buffers from RAM above 4 GB. The
+`dma_map_phys` function in kernel/dma/direct.h warns and returns a
+mapping error, and the MUSB gadget endpoint wedges.
+
+Fixes tried and failed:
+- `swiotlb=force` — the swiotlb bounce isn't consulted in the new
+  `dma_map_phys` path for this device
+- `musb_core.use_dma=0` — the module parameter exists but the cmdline
+  format for built-in drivers doesn't parse it correctly
+
+The definitive fix: `CONFIG_MUSB_PIO_ONLY=y` — completely disables MUSB
+DMA at compile time. USB runs in PIO mode (slower but stable). This is
+now being built.
+
+With stable USB: the nc pull of the 11.7 GB rootfs completes, the ext4
+superblock is verified, the pivot initramfs mounts the root, and
+Omarchy boots.
+
+## 2026-10-29: the MUSB DMA overflow is THE blocker for large USB transfers
+
+Every USB data crash this session traces to one root cause: the MUSB
+controller's DMA engine is limited to 32-bit addresses (mask ffffffff)
+but the kernel allocates buffers from RAM above 4 GB. The
+`dma_map_phys` function in kernel/dma/direct.h warns and returns a
+mapping error, and the MUSB gadget endpoint wedges.
+
+Fixes tried and failed:
+- `swiotlb=force` — the swiotlb bounce isn't consulted in the new
+  `dma_map_phys` path for this device
+- `musb_core.use_dma=0` — the module parameter exists but the cmdline
+  format for built-in drivers doesn't parse it correctly
+
+The definitive fix: `CONFIG_MUSB_PIO_ONLY=y` — completely disables MUSB
+DMA at compile time. USB runs in PIO mode (slower but stable). This is
+now being built.
+
+With stable USB: the nc pull of the 11.7 GB rootfs completes, the ext4
+superblock is verified, the pivot initramfs mounts the root, and
+Omarchy boots.
