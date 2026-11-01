@@ -1,0 +1,4 @@
+[   36.399243] systemd-journald[1926]: Received client request to flush runtime journal.
+[   36.400581] audit: type=1130 audit(1792340734.308:9): pid=1 uid=0 auid=4294967295 ses=4294967295 msg='unit=systemd-vconsole-setup comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+[   36.412571] audit: type=1130 audit(1792340734.320:10): pid=1 uid=0 auid=4294967295 ses=4294967295 msg='unit=systemd-pstore comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+[   36.420386] audit: type=1130 audit(1792340734.328:11): pid=1 uid=0 auid=4294967295 ses=4294967295 msg='unit=systemd-random-seed comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'

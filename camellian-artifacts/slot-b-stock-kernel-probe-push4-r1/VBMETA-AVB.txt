@@ -1,0 +1,34 @@
+Minimum libavb version:   1.0
+Header Block:             256 bytes
+Authentication Block:     576 bytes
+Auxiliary Block:          3264 bytes
+Public key (sha1):        2597c218aae470a130f61162feaae70afd97f011
+Algorithm:                SHA256_RSA4096
+Rollback Index:           0
+Flags:                    3
+Rollback Index Location:  0
+Release String:           'avbtool 1.3.0'
+Descriptors:
+    Chain Partition descriptor:
+      Partition Name:          boot
+      Rollback Index Location: 1
+      Public key (sha1):       cdbb77177f731920bbe0a0f94f84d9038ae0617d
+      Flags:                   0
+    Chain Partition descriptor:
+      Partition Name:          vbmeta_system
+      Rollback Index Location: 2
+      Public key (sha1):       cdbb77177f731920bbe0a0f94f84d9038ae0617d
+      Flags:                   0
+    Chain Partition descriptor:
+      Partition Name:          vbmeta_vendor
+      Rollback Index Location: 3
+      Public key (sha1):       cdbb77177f731920bbe0a0f94f84d9038ae0617d
+      Flags:                   0
+    Prop: com.android.build.dtbo.fingerprint -> 'Redmi/lineage_camellia/camellia:16/BP4A.251205.006/eng.builde:userdebug/release-keys'
+    Hash descriptor:
+      Image Size:            151552 bytes
+      Hash Algorithm:        sha256
+      Partition Name:        dtbo
+      Salt:                  46d8c080b031cb94ac812d5385052b671ffc81e9498d6549e6ba66d5ee5598ec
+      Digest:                2a12b2a3ecad3d7866743279304eec802c88918bb744c929f7461e5c2a09fd21
+      Flags:                 0

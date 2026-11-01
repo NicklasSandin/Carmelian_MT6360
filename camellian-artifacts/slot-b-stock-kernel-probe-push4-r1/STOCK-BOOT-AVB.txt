@@ -1,0 +1,26 @@
+Footer version:           1.0
+Image size:               67108864 bytes
+Original image size:      31559680 bytes
+VBMeta offset:            31559680
+VBMeta size:              1536 bytes
+--
+Minimum libavb version:   1.0
+Header Block:             256 bytes
+Authentication Block:     320 bytes
+Auxiliary Block:          960 bytes
+Public key (sha1):        cdbb77177f731920bbe0a0f94f84d9038ae0617d
+Algorithm:                SHA256_RSA2048
+Rollback Index:           1785542400
+Flags:                    0
+Rollback Index Location:  0
+Release String:           'avbtool 1.3.0'
+Descriptors:
+    Hash descriptor:
+      Image Size:            31559680 bytes
+      Hash Algorithm:        sha256
+      Partition Name:        boot
+      Salt:                  064a3ebad62a5a4f254c8d89f0b3944b45a0797a6639c7cd4bc92460f3ce591b
+      Digest:                ec900f1547d5da8b351e8d9ef91def78228c0c1ffb402aa85f242d872a46b7b0
+      Flags:                 0
+    Prop: com.android.build.boot.os_version -> '16'
+    Prop: com.android.build.boot.fingerprint -> 'Redmi/lineage_camellia/camellia:16/BP4A.251205.006/eng.builde:userdebug/release-keys'

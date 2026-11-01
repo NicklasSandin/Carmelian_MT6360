@@ -1,0 +1,144 @@
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (status_is_string): /reserved-memory/reserve-memory-sspm_share:status: property is not a string
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (status_is_string): /scp@10500000:status: property is not a string
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (reg_format): /spi0@1100a000/irled@0:reg: property has invalid length (4 bytes) (#address-cells == 2, #size-cells == 1)
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (reg_format): /spi4@11018000/focaltech@0:reg: property has invalid length (4 bytes) (#address-cells == 2, #size-cells == 1)
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (reg_format): /spi4@11018000/novatek@0:reg: property has invalid length (4 bytes) (#address-cells == 2, #size-cells == 1)
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /memory: node has a reg or ranges property, but no unit name
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /reserved-memory/mblock-21-DPM-reserved: node has a reg or ranges property, but no unit name
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /reserved-memory/mblock-20-framebuffer: node has a reg or ranges property, but no unit name
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /reserved-memory/mblock-19-minirdump: node has a reg or ranges property, but no unit name
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /reserved-memory/mblock-18-pstore: node has a reg or ranges property, but no unit name
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /reserved-memory/mblock-17-aee_debug_kinfo: node has a reg or ranges property, but no unit name
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /reserved-memory/mblock-16-PICACHU: node has a reg or ranges property, but no unit name
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /reserved-memory/mblock-15-MCUPM-reserved: node has a reg or ranges property, but no unit name
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /reserved-memory/mblock-14-tee-reserved: node has a reg or ranges property, but no unit name
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /reserved-memory/mblock-13-tee_ree_reserved: node has a reg or ranges property, but no unit name
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /reserved-memory/mblock-12-tee_log_reserved: node has a reg or ranges property, but no unit name
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /reserved-memory/mblock-11-SSPM-reserved: node has a reg or ranges property, but no unit name
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /reserved-memory/mblock-10-tee-secmem: node has a reg or ranges property, but no unit name
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /reserved-memory/mblock-9-atf-log-reserved: node has a reg or ranges property, but no unit name
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /reserved-memory/mblock-8-atf-ramdump-reserved: node has a reg or ranges property, but no unit name
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /reserved-memory/mblock-7-atf-reserved: node has a reg or ranges property, but no unit name
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /reserved-memory/mblock-6-log_store: node has a reg or ranges property, but no unit name
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /reserved-memory/mblock-5-gz-log: node has a reg or ranges property, but no unit name
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /reserved-memory/mblock-4-gz: node has a reg or ranges property, but no unit name
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /reserved-memory/mblock-3-emi_mbist_buf: node has a reg or ranges property, but no unit name
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /reserved-memory/mblock-2-dramc-rk1: node has a reg or ranges property, but no unit name
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /reserved-memory/mblock-1-dramc-rk0: node has a reg or ranges property, but no unit name
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /bus_parity: node has a reg or ranges property, but no unit name
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /interrupt-controller: node has a reg or ranges property, but no unit name
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /bt@00000000: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/msdc0@default: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/msdc0@hs400: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/msdc0@hs200: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/msdc0@register_default: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/msdc1@default: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/msdc1@sdr104: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/msdc1@sdr50: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/msdc1@ddr50: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/msdc1@hs200: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/msdc1@register_default: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/gps_l1_lna@0: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/gps_l1_lna@1: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/gps_l1_lna@2: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/gps_l5_lna@0: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/gps_l5_lna@1: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/gps_l5_lna@2: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/irtx_gpio_led_def@gpio25: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/irtx_gpio_led_set@gpio25: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/cam0@0: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/cam0@1: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/cam1@0: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/cam1@1: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/cam2@0: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/cam2@1: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/cam3@0: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/cam3@1: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/cam0@vcam0: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/cam0@vcam1: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/cam0@vcam2: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/cam0@vcam3: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/cam1@vcam0: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/cam1@vcam1: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/cam1@vcam2: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/cam1@vcam3: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/cam2@vcam0: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/cam2@vcam1: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/cam2@vcam2: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/cam2@vcam3: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/cam3@vcam0: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/cam3@vcam1: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/cam3@vcam2: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/cam3@vcam3: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/mipi_en@1: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/mipi_en@0: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/mipi_sel@1: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pinctrl/mipi_sel@0: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /pwraphal@10026000: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /mddriver: node has a reg or ranges property, but no unit name
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /dfd@0c600000: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /flashlights_mt6360/channel@1: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /flashlights_mt6360/channel@2: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /kd_camera_hw1@1a004000: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /mtkfb@0: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /gps@18c00000: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /odm/led@0: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /odm/led@1: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /odm/led@2: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /odm/led@3: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /odm/led@4: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /odm/led@5: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /odm/led@6: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /odm/vibrator@0: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /spi4@11018000/novatek@0/novatek-mp-criteria-594E@0: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /spi4@11018000/novatek@0/novatek-mp-criteria-5949@0: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /spi4@11018000/novatek@0/novatek-mp-criteria-594C@0: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_vs_reg): /spi4@11018000/novatek@0/novatek-mp-criteria-5958@0: node has a unit name, but no reg or ranges property
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_format): /cpus/cpu@000: unit name should not have leading 0s
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_format): /cpus/cpu@001: unit name should not have leading 0s
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_format): /cpus/cpu@002: unit name should not have leading 0s
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_format): /cpus/cpu@003: unit name should not have leading 0s
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_format): /cpus/cpu@004: unit name should not have leading 0s
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_format): /cpus/cpu@005: unit name should not have leading 0s
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_format): /mtk_lpm/cpupm-sysram@0011b000: unit name should not have leading 0s
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_format): /mtk_lpm/lpm_sysram@0011b500: unit name should not have leading 0s
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_format): /qos@0011bb00: unit name should not have leading 0s
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_format): /mcupm@0c540000: unit name should not have leading 0s
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_format): /bt@00000000: unit name should not have leading 0s
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_format): /chipid@08000000: unit name should not have leading 0s
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_format): /mcucfg@0c530000: unit name should not have leading 0s
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_format): /dvfsp@0011bc00: unit name should not have leading 0s
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_format): /mcucfg1@0c530000: unit name should not have leading 0s
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_format): /gic500@0c000000: unit name should not have leading 0s
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_format): /gic_cpu@0c400000: unit name should not have leading 0s
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_format): /dfd@0c600000: unit name should not have leading 0s
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_format): /dbg_ao@0d000000: unit name should not have leading 0s
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_format): /dbg_cti@0d020000: unit name should not have leading 0s
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_format): /dbg_etr@0d030000: unit name should not have leading 0s
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_format): /bus_tracer@0d040000: unit name should not have leading 0s
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_format): /dbg_dem@0d0a0000: unit name should not have leading 0s
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_format): /dbg_mdsys1@0d0c0000: unit name should not have leading 0s
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_format): /i2c2@11d21000/camera_main_af@0c: unit name should not have leading 0s
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unit_address_format): /i2c7@11e02000/nfc@08: unit name should not have leading 0s
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (pci_device_reg): Failed prerequisite 'reg_format'
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (pci_device_bus_num): Failed prerequisite 'reg_format'
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (simple_bus_reg): Failed prerequisite 'reg_format'
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (i2c_bus_reg): Failed prerequisite 'reg_format'
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (spi_bus_bridge): /spi5@11019000: node name for SPI buses should be 'spi'
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (spi_bus_reg): Failed prerequisite 'reg_format'
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (spi_bus_reg): Failed prerequisite 'spi_bus_bridge'
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (avoid_default_addr_size): /spi0@1100a000/irled@0: Relying on default #address-cells value
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (avoid_default_addr_size): /spi0@1100a000/irled@0: Relying on default #size-cells value
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (avoid_default_addr_size): /spi4@11018000/focaltech@0: Relying on default #address-cells value
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (avoid_default_addr_size): /spi4@11018000/focaltech@0: Relying on default #size-cells value
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (avoid_default_addr_size): /spi4@11018000/novatek@0: Relying on default #address-cells value
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (avoid_default_addr_size): /spi4@11018000/novatek@0: Relying on default #size-cells value
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (avoid_unnecessary_addr_size): Failed prerequisite 'avoid_default_addr_size'
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (unique_unit_address): Failed prerequisite 'avoid_default_addr_size'
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (gpios_property): /__symbols__:gpio: property size (15) is invalid, expected multiple of 4
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (interrupts_property): /md1_sim1_hot_plug_eint:#interrupt-cells: size is (8), expected multiple of 12
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (interrupts_property): /md1_sim2_hot_plug_eint:#interrupt-cells: size is (8), expected multiple of 12
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (graph_endpoint): /dsi@14013000/panel1@0/port/endpoint: graph connection to node '/dsi@14013000/ports/port/endpoint' is not bidirectional
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (graph_endpoint): /dsi@14013000/panel2@1/port/endpoint: graph connection to node '/dsi@14013000/ports/port/endpoint' is not bidirectional
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (graph_endpoint): /dsi@14013000/panel3@2/port/endpoint: graph connection to node '/dsi@14013000/ports/port/endpoint' is not bidirectional
+/media/nicklas/New Volume1/stuff/device-backups/camellian-2026-10-24/live.dts: Warning (graph_endpoint): /dsi@14013000/panel5@4/port/endpoint: graph connection to node '/dsi@14013000/ports/port/endpoint' is not bidirectional

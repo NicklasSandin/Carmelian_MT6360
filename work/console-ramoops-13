@@ -1,0 +1,9 @@
+[   34.827067] audit: type=1334 audit(1792340732.760:4): prog-id=18 op=LOAD
+[   34.828035] audit: type=1334 audit(1792340732.760:5): prog-id=19 op=LOAD
+[   34.836758] audit: type=1130 audit(1792340732.764:6): pid=1 uid=0 auid=4294967295 ses=4294967295 msg='unit=systemd-pstore comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+[   34.839168] audit: type=1130 audit(1792340732.768:7): pid=1 uid=0 auid=4294967295 ses=4294967295 msg='unit=systemd-random-seed comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+[   34.843923] audit: type=1130 audit(1792340732.776:8): pid=1 uid=0 auid=4294967295 ses=4294967295 msg='unit=systemd-vconsole-setup comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+[   34.847143] audit: type=1130 audit(1792340732.780:9): pid=1 uid=0 auid=4294967295 ses=4294967295 msg='unit=systemd-sysctl comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+[   34.866148] systemd-journald[1926]: Received client request to flush runtime journal.
+[   34.876076] audit: type=1130 audit(1792340732.808:10): pid=1 uid=0 auid=4294967295 ses=4294967295 msg='unit=systemd-userdbd comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=failed'
+[   34.880383] audit: type=1334 audit(1792340732.812:11): prog-id=20 op=LOAD

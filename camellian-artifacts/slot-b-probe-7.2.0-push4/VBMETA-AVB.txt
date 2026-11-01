@@ -1,0 +1,11 @@
+Minimum libavb version:   1.0
+Header Block:             256 bytes
+Authentication Block:     0 bytes
+Auxiliary Block:          0 bytes
+Algorithm:                NONE
+Rollback Index:           0
+Flags:                    3
+Rollback Index Location:  0
+Release String:           'avbtool 1.4.0'
+Descriptors:
+    (none)

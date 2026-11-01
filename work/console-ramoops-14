@@ -1,0 +1,3 @@
+[   34.891328] audit: type=1130 audit(1792340732.820:9): pid=1 uid=0 auid=4294967295 ses=4294967295 msg='unit=systemd-pstore comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+[   34.901392] audit: type=1130 audit(1792340732.832:10): pid=1 uid=0 auid=4294967295 ses=4294967295 msg='unit=systemd-userdbd comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=failed'
+[   34.908026] audit: type=1334 audit(1792340732.836:11): prog-id=20 op=LOAD

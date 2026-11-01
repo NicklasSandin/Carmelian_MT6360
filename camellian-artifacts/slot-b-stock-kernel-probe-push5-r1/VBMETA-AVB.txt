@@ -1,0 +1,17 @@
+Minimum libavb version:   1.0
+Header Block:             256 bytes
+Authentication Block:     0 bytes
+Auxiliary Block:          256 bytes
+Algorithm:                NONE
+Rollback Index:           0
+Flags:                    3
+Rollback Index Location:  0
+Release String:           'avbtool 1.4.0'
+Descriptors:
+    Hash descriptor:
+      Image Size:            17985536 bytes
+      Hash Algorithm:        sha256
+      Partition Name:        boot
+      Salt:                  19cf0c42d1cfea7bc73c515bd8b6a7569628fe2a828945cce7eb07150dd02079
+      Digest:                8731ec789b7fc3c1935e127126b10588c14a76774843241d21d9373c2310e6c6
+      Flags:                 0

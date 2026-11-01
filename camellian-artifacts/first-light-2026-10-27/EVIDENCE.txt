@@ -1,0 +1,30 @@
+=== uname/hostname/uptime:
+Linux omamobile-camellian 4.14.357-openela-perf-10073-gaa8ed47d4ad9 #11 SMP PREEMPT Sat Aug 29 07:23:04 CEST 2026 aarch64 Linux
+omamobile-camellian
+167.62 1311.60
+
+=== ALL GUARD RO FLAGS (must all be 1):
+/sys/class/block/sda/ro=1
+/sys/class/block/sdb/ro=1
+/sys/class/block/sdc/ro=1
+/sys/class/block/sdc1/ro=1
+/sys/class/block/sdc10/ro=1
+count_of_sd_ro=1: 63
+
+=== microSD (read-only report, never mounted):
+62386143
+
+=== cmdline:
+console=tty0 console=ttyS0,921600n1 root=/dev/ram vmalloc=400M slub_debug=OFZPU swiotlb=noforce initcall_debug=1 firmware_class.path=/vendor/firmware loglevel=8 androidboot.hardware=mt6833 page_owner=on loop.max_part=7 has_battery_removed=0 ramoops.mem_address=0x48090000 ramoops.mem_size=0xe0000 ramoops.pmsg_size=0x10000 ramoops.console_size=0x40000 loop.max_part=7 androidboot.boot_devices=bootdevice,soc/11230000.mmc,11230000.mmc,soc/11270000.ufshci,11270000.ufshci androidboot.rsc=camelliagl androidboot.product.hardware.sku=camellianp pcba_config=7 ramoops.mem_address=0x48090000 ramoops.mem_size=0xe0000 ramoops.pmsg_size=0x10000 ramoops.console_size=0x40000 clk_ignore_unused androidboot.cpuid=0x76960dd8a13dd2fbbff62fb5819b4c97b6f3bebb307eeaed85f26dbe androidboot.dp=3 bootopt=64S3,32N2,64N2 root=/dev/ram androidboot.vbmeta.device=PARTUUID=e8f0a5ef-8d1b-42ea-9c2a-835cd77de363 androidboot.vbmeta.avb_version=1.2 androidboot.vbmeta.device_state=unlocked androidboot.veritymode=disabled androidboot.veritymode.managed=yes androidboot.slot_suffix=_b androidboot.slot=b androidboot.verifiedbootstate=orange androidboot.atm=disabled androidboot.force_normal_boot=1 androidboot.meta_log_disable=0 androidboot.cpuid=0x76960dd8a13dd2fbbff62fb5819b4c97b6f3bebb307eeaed85f26dbe mtk_printk_ctrl.disable_uart=1 androidboot.serialno=5xbas4ozs459eqw8 ufsinfo_vid=462 ufsinfo_pid=KM5P8001DM-B424 ufsinfo_product_revision_level=0101 ufsinfo_serial_hex=57b51279501c ufsinfo_blk_cnt=15622144 :bklic=01 LCM_name=dsi_panel_K19_36_02_0d_vdo FT_LCM_ID=0x1 ro.boot.lcm_white_point=299319446 tp_lockdown_info=463632014b195700 androidboot.radio.multisim.config=dsds androidboot.bootreason=lk_crash gpt=1 usb2jtag_mode=0 androidboot.dtb_idx=0 androidboot.dtbo_idx=0
+
+=== full omamobile markers:
+[    1.739948]  (3)[1:init]omamobile-camellian: RAM-only first light: 4.14.357-openela-perf-10073-gaa8ed47d4ad9
+[    1.743485]  (7)[1:init]omamobile-camellian: CPUs: 0-7; MemTotal:        3658724 kB
+[    7.762983]  (1)[1:init]omamobile-camellian: microSD present: /dev/mmcblk0p1 (62386143 sectors)
+[    7.764024]  (3)[1:init]omamobile-camellian: watchdog0 missing; USB recovery timer remains active
+[    7.781694]  (3)[1:init]omamobile-camellian: USB gadget bound to musb-hdrc
+[    7.807454]  (2)[1:init]omamobile-camellian: SSH ready: root@172.16.42.1; all UFS storage read-only
+[    7.808654]  (2)[1:init]omamobile-camellian: init finished setup; first light is up
+
+=== dropbear/ssh listeners:
+tcp        0      0 172.16.42.1:22          0.0.0.0:*               LISTEN      
