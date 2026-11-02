@@ -913,3 +913,67 @@ now being built.
 With stable USB: the nc pull of the 11.7 GB rootfs completes, the ext4
 superblock is verified, the pivot initramfs mounts the root, and
 Omarchy boots.
+
+## 2026-11-01/02 night session: the vbmeta/lk_b exchange with the sibling ports, and the boot-loop
+
+### What was sent to the sibling ports
+- chenggenh01-create/kernel_xiaomi_mt6833_mainline: issue #1 (UFS four-fix chain, slot-B gotchas).
+- MT6833-Mainline/linux-mt6833: commit comment on the camellia DTS/clock commit (issues+discussions disabled).
+- Dodaskot/a22x-mainline: commit comment (their DTB carries compatible "xiaomi,camellian"; two questions:
+  their USB DMA config above 4 GB, and their working MT6360 charger's i2c/pinctrl config).
+
+### What the siblings gave us
+- a22x-mainline v143: MT6360 charger + MT6359 fuel gauge work, USB-C OTG switching, audio (SIA8109+UCM),
+  conn/ gen4m WiFi + own BT HCI driver, modem reached HS2 (FS1446). Prebuilt boot images in releases/.
+- MT6833-Mainline landed MT6833 clock drivers (July 2026, akku1139) + mmsys/audsys + pinctrl.
+- Their camellia DTS: SPI Novatek touch + Tianma panel + 6 GiB assumption — our unit is I2C FocalTech,
+  panel 36_02_0d, 4 GiB. Unit variance inside the camellia family is real.
+- pmos-xiaomi-thunder renamed to thunder-os; docs restructured.
+
+### New bootloader findings (this night)
+1. **The preloader enforces secure-boot on lk_b itself**: a 2-byte patch (CBNZ→NOP "defuse") in lk_b
+   breaks the image hash inside its embedded cert → `[SBC] img auth fail(0x101004)` → preloader
+   `<ASSERT> partition.c:203` → dead before LK. lk_b must be a BYTE-IDENTICAL copy of lk_a (proven).
+2. **`vbmeta_b_disabled` (flags=3, no auth, no descriptors) is the proven B-side vbmeta** — with it LK
+   prints `[SBC] img vfy disabled`, skips all verification, and boot_b loads regardless of content.
+   The hand-built "selffix/ourhash" variants had gutted/corrupt hash descriptors (image=0, empty name).
+3. **A flags-1 vbmeta with a real (avbtool-built, verified) descriptor for boot_valguard still died on
+   the armed path** — the descriptor path re-enters fragile verification flow. Disabled beats correct.
+4. **avbtool**: the repo is platform/external/avb (not system/avb); googlesource blocked from this
+   network; the working copy is /home/nicklas/.local/bin/avbtool.py (avbtool 1.3.0). /home/nicklas/avbtool.py
+   is an EMPTY STUB that exits 0 silently — it silently no-ops add_hash_footer. Always check the image
+   size grew to partition_size after add_hash_footer.
+5. **The corrupt/red screen needs power presses to continue** — on this device the presses are part of
+   every boot recipe (screen appears whenever verification fails: Lineage vbmeta_a key rejected → red).
+   Slot B shows the same screen but the panel usually never wakes there — the presses are blind,
+   cued by the LK-start vibrations.
+6. **`adb reboot` from recovery re-enters recovery** on this MTK bootloader (consumes a boot-recovery
+   hint). To reach Android from recovery: adb reboot bootloader → fastboot reboot.
+7. **LK resets from the corrupt-screen timeout are "rst from: lk"** — an LK-initiated reset, NOT the
+   watchdog (RGU status 0). The pstore console does NOT update in loop cycles → the kernel never runs.
+
+### The 2026-11-02 boot loop (UNRESOLVED, phone healthy)
+- State: BOTH slots flashed back to the Oct-24 baseline (boot_a/b, vbmeta_a/b from
+  device-backups/camellian-2026-10-24; lk_b = byte-identical lk_a copy = the proven Oct-27 config;
+  misc = original bytes, B disarmed in the preloader store (priority 15,0 / retry 2,0)).
+- Symptom: A cycles die in LK panel init — `lcm_compare_id` probes 4 drivers, chooses
+  dsi_panel_K19_36_02_0d_vdo (id 0x18b7 ✓), lcm_init_power reads lcd_bias_id=51 (bias IC alive),
+  then SLEEPOUT_DONE polling fails (4 retry blocks), `rst from: lk`, repeat. The panel works
+  100% in recovery (vendor kernel) and the user saw the corrupt screen earlier in the night.
+- Tried and failed: original vbmeta_a restore, flags-3 vbmeta_a, cold boot (unplug + hard off + 3 min),
+  clean kernel power-off (`reboot -p` from recovery), 240 s fastboot dwell before reboot.
+- The Oct 27-30 successes had every LK start preceded by a *completed Android boot*; tonight every LK
+  start followed a recovery boot or a loop reset. The panel-state dependency is real but the
+  recovery→LK path now loses 100%.
+- Next-session candidates, in order:
+  1. **Long unpowered rest (hours/overnight)** — the only persistent state never fully cleared
+     (panel/bias rails, PMIC, RPMB store) decays with real time. Boot cold, press at the corrupt screen.
+  2. From Android (once up): the FULL proven B recipe (misc arm + set_active b + 240 s dwell + reboot)
+     with boot_b = boot_pio_only_pivot_64m.img + vbmeta_b_disabled (the exact Oct-30 set).
+  3. If LK panel init still fails on a rested phone: diff a good LCM record (ring, pre-loop) vs the
+     failing ones line-by-line — the divergence point names the gate (tps6132 bias writes vs
+     SLEEPOUT vs the DSI lockdown read).
+  4. The jump-prep death seen mid-night ("booting linux" → rst, no sync_cache/jump) on BOTH slots
+     remains unexplained; the two g_boot_info getter callers (runtime 0x482515D6/0x482515FA) and the
+     round_up() helper at 0x482514D0 are disassembled in the session record (capstone scripts).
+- Phone safety state at session end: recovery, adb on, both slots = Oct-24 baseline, battery 80% charging.
