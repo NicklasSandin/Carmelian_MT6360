@@ -977,3 +977,29 @@ Omarchy boots.
      remains unexplained; the two g_boot_info getter callers (runtime 0x482515D6/0x482515FA) and the
      round_up() helper at 0x482514D0 are disassembled in the session record (capstone scripts).
 - Phone safety state at session end: recovery, adb on, both slots = Oct-24 baseline, battery 80% charging.
+
+### Addendum (2026-11-02, ~05:00): THE LOOP'S ROOT CAUSE — userdata
+- **Android could not boot since Oct 30**: the 68-chunk SSH pull wrote the omamobile rootfs into
+  `userdata` — which IS Android's /data. Verified read-only from recovery: ext4 magic OK,
+  **volume label `omamobile-root`**, UUID aa3242e4-bed7-4972-8cc2-1692edd57b3f, state clean.
+  Every "corrupt screen → reboot" cycle since Oct 30 was Android failing on its own /data plus
+  bootstat rescue — not LK, not vbmeta, not the flashed images.
+- Fix applied: recovery → Wipe → Format data. **LineageOS boots again** (user press at the orange
+  screen = required, normal for the unlocked/red state; no press = timeout-reboot loop).
+- A/B contrast established by the user: slot A panel wakes every cycle (corrupt text visible,
+  press → Lineage). Slot B panel never wakes (SLEEPOUT_DONE polls fail → `rst from: lk`).
+  Slot B used to win this lottery on Oct 30; tonight 0-for-~10 across all attempts, including
+  from the Android origin. Working theory: the panel/bias power-state machine is wedged after
+  ~200 warm resets today; recovery's vendor kernel always wakes it, LK's short init doesn't.
+- Flash state at end of session: slot A = Oct-24 stock backup (boot_a + vbmeta_a);
+  slot B = boot_valguard (PIO_ONLY valguard kernel + pivot initramfs, full 158,473-byte graft DTB
+  — verified the graft did NOT lose display nodes vs the pre-patch stock boot-DTB) +
+  vbmeta_b_disabled (flags 3) + lk_b = pristine lk_a copy. misc original, B disarmed.
+- Next session plan: (1) overnight unpowered rest — the only untried reset of the panel/PMIC/RPMB
+  persistent state; (2) boot → Lineage via press; (3) from Android: full proven B recipe, hands
+  completely off (presses on B are at best useless, at worst `rst from: pl`); (4) on SSH up:
+  re-pull the rootfs (userdata now empty) via the proven SSH chunk method, then pivot → Omarchy;
+  (5) if SLEEPOUT still fails on a rested panel: trace lcm_init_power (bias_id=51 OK) →
+  SLEEPOUT gap, and compare the tps6132 write sequence against a pre-degradation record.
+- Note on presses: on slot A the corrupt screen REQUIRES a press to continue (user-verified A/B
+  test: no press = loop, press = Lineage). On slot B: no screen ever; never press there.
