@@ -1027,3 +1027,26 @@ Omarchy boots.
   and normal). Slot B: boot_valguard probe + vbmeta_b_disabled + pristine lk_b, ready.
 - Campaign lesson: automation that races adb-root/fastboot-readiness silently disarms the whole
   recipe. The verified manual sequence is the only trustworthy driver of the B attempt.
+
+### Addendum 3 (2026-11-03, evening): session close — functional baseline restored
+- Both slots = Oct-24 backups (boot_a/b + vbmeta_a/b stock Lineage; lk_b = pristine lk_a copy).
+  LineageOS boots (user press at the orange screen). adb root works. Phone = functional dev phone.
+- The rootfs write SUCCEEDED before the probe attempts: userdata + 5,368,709,120 bytes holds
+  omamobile-rootfs-2026.10.29-aarch64.img (verified: 53ef + label omamobile-root at the offset).
+  dd calibration note: recovery toybox dd seek/skip DO count in bs units; verify with bs=1 reads
+  at absolute offsets (the first "vanished write" was a 380-byte verification miscompute).
+- RISK: Lineage's /data spans the whole userdata partition; its allocator may reuse the rootfs
+  region (5G-16.7G). Keep Lineage usage minimal, or accept a re-write (the verified pipe is ~5 min).
+- The probe-on-A attempt (signed vbmeta pair) and the Lineage-vbmeta silent-fallback attempt both
+  failed pre-evidence (phone landed in fastboot; no expdb pull yet). The valguard kernel has still
+  NEVER been observed executing. Next session's evidence pull: expdb + pstore from recovery.
+- RESTART PLAN (next session): the M1-design route — rootfs on the MICROSD, not userdata:
+  1. User confirms SD-in-phone + laptop card reader.
+  2. dd the rootfs image to the SD on the laptop.
+  3. Restore userdata as fresh Android /data (format) → Android boots → the ORIGIN returns.
+  4. Slot B = the SD-root probe (camellian-artifacts/probe-7.2.0-push4 era images).
+  5. The proven B recipe from the Android origin (the only precondition under which B ever won).
+  6. Probe → pivot to the SD root → Omarchy. userdata stays Android's; no conflict.
+- The UFS-root installer (userdata+5G) remains viable as a LATER stage once the B-path boot
+  reliability is understood (the pre-LK gates: armed-cycle SLEEPOUT deaths + the retry-0 rst-pl
+  give-up + the re-arm condition that Oct 27 had and Nov lacks).
