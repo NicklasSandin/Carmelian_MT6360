@@ -1003,3 +1003,27 @@ Omarchy boots.
   SLEEPOUT gap, and compare the tps6132 write sequence against a pre-degradation record.
 - Note on presses: on slot A the corrupt screen REQUIRES a press to continue (user-verified A/B
   test: no press = loop, press = Lineage). On slot B: no screen ever; never press there.
+
+### Addendum 2 (2026-11-03): the B path has THREE stacked gates, all pre-LK
+- Overnight rest + userdata fix + Android-origin did NOT unblock slot B. Six-cycle automated
+  campaign: 0/6 — and the ring shows WHY: **zero Preloader_b records**; every reboot went to A.
+  Root cause of the campaign failure: the automated `set_active b` + raced `adb root` misc arm
+  left the private store disarmed (`priority = 15, 0`). The verified manual sequence
+  (misc arm + readback, getvar-verified fastboot) DID arm B (`priority = 14, 15`).
+- With B properly armed, the truth emerged — **two distinct gates, both before LK ever runs**:
+  1. **Armed cycles** (retry 7→1): LK starts, panel init, SLEEPOUT_DONE polls fail → `rst from: lk`
+     / `rst from: unknown`. The known armed-path lottery, now losing ~100%.
+  2. **Final try** (retry 0): the PRELOADER itself resets — `ab_suffix: _b, ab_retry: 0` →
+     `[RGU] rst from: pl` — instantly, silently, no assert. LK never starts from slot B.
+  (Note: getvar current-slot after set_active reports the CURRENT boot's slot, not the pending
+  one — it cannot verify the arm. The private store's metadata.slot_info in the next boot's
+  records is the only trustworthy arm-verification.)
+- The success-era rings survive locally: camellian-artifacts/lk-b-research-2026-10-27/
+  expdb5/6/7.img (Oct 27 first-light day). Next session step 1: extract the successful
+  final-try sequences from those and diff against tonight's `rst from: pl` record.
+  The divergence names the gate (suspects: private-store state shape, misc/BCB interplay
+  on the final-try path, or the preloader's armed→final-try transition itself).
+- LineageOS status: healthy, boots via user press at the orange screen (that press is required
+  and normal). Slot B: boot_valguard probe + vbmeta_b_disabled + pristine lk_b, ready.
+- Campaign lesson: automation that races adb-root/fastboot-readiness silently disarms the whole
+  recipe. The verified manual sequence is the only trustworthy driver of the B attempt.
