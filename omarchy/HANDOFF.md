@@ -1066,3 +1066,139 @@ services even with the frozen manager.
    freeze is tolerable - the services run independently
 5. The long-term: the mainline kernel port (the camellia mainline
    repo) fixes ALL the kernel-level issues at once
+
+## 2026-11-11 20:05 🎉 THE DISPLAY IS WORKING!!!
+### The user SEES the test pattern on the phone's screen!
+- Red, green, and blue horizontal stripes with a white border
+- Rendered by fb_draw (a 2.8KB no-libc binary that mmaps fb0 and draws)
+### THE DISPLAY PIPELINE (all working on the stock 4.14 kernel)
+1. Panel matched: dsi_panel_K19_36_02_0d_vdo (the Tianma NT36672C)
+2. DRM card0: card0-DSI-1 connector (status=connected)
+3. Backlight: lcd-backlight at 2047/2047 (max)
+4. Touchscreen: ft_tianma probed successfully
+5. DPMS: On (triggered via fb0 blank=0 + the DRM SET_MASTER)
+6. CRTC: resumed (mtk_drm_crtc_atomic_resume)
+7. Framebuffer: smem_start=0x7ba10000, smem_len=30MB, 1080x2400@32bpp
+8. mmap: 0x9deb4000 (the direct fb memory access)
+9. Scanout: the CRTC streams the framebuffer to the display ✓
+### HOW THE DISPLAY WAS ENABLED
+The fb0 write is a stub (returns 0 bytes). The display was enabled by:
+1. Opening /dev/dri/card0 and doing DRM_IOCTL_SET_MASTER
+2. Writing 0 to /sys/class/graphics/fb0/blank (the unblank)
+3. The unblank triggered mtk_drm_crtc_atomic_resume (the CRTC woke up)
+4. mmap /dev/fb0 → the direct framebuffer memory (30MB CMA)
+5. Write pixels directly to the mapped memory
+6. The CRTC scans out the framebuffer to the display
+### THE KEY INSIGHT
+The LK bootloader initialized the panel and left it showing the logo.
+The kernel's DRM driver matched the panel and created the fb0 but set
+DPMS=Off (no compositor to trigger the atomic commit). The fb0 unblank
+(0 = FB_BLANK_UNBLANK) triggered the DRM atomic resume, which powered
+on the DPU and started the scanout. The framebuffer was already mapped
+(CMA allocated 30MB), so writing to the mapped memory directly
+bypasses the broken fb write and draws to the screen.
+### THE TOOL
+fb_draw.c (2816 bytes, no libc) - mmaps /dev/fb0 and draws. The binary
+is at /tmp/fb on the phone. The source is in work/tools/fb_draw.c.
+The framebuffer memory:
+- Physical: 0x7ba10000
+- Size: 31,373,312 bytes (30MB)
+- Layout: 1080x2400 visible, 1088x7200 virtual, 32bpp
+- Stride: 1080*4=4320 (should be 1088*4=4352 - the image may be slightly
+  shifted; fix by using stride=1088*4=4352 in the draw loop)
+### NEXT STEPS FOR THE DISPLAY
+1. Fix the stride: use 4352 (xres_virtual * 4) instead of 4320
+2. Draw a proper terminal/console on the framebuffer
+3. Run SDDM + KDE (the full desktop) once the services are up
+4. The touchscreen (ft_tianma) probed - check if the touch events work
+
+## 2026-11-11 20:30 CONFIRMED: THE DIRECT-SPAWN FALLBACK WORKS
+Boot #89 (SD log via the A-side mount): the manager froze on the assert,
+the init detected the freeze ("manager frozen - direct-spawning critical
+services"), and the critical services were spawned. The journal started
+("Started Journal Service"). The system continued on the direct-spawned
+services despite the frozen manager. The recipe:
+1. +3s post-pivot: stop journal sockets, start my-journald, daemon-reload,
+   start sshd+NM (all via systemctl --no-block)
+2. +8s: check if the manager is alive (systemctl is-system-running)
+3. If dead: directly spawn udevd --daemon, dbus-broker --system, sshd,
+   NetworkManager --no-daemon (all via chroot, bypassing systemctl)
+
+## 2026-11-11 21:00 THE MANAGER IS IN ITS EVENT LOOP - NOT FROZEN!
+### PID 1 wchan = 0 (the event loop, NOT do_wait/freeze)
+The close_nointr/safe_close overrides (nhstub26) PREVENTED the
+mount-table safe_close(-EBADF) assert that froze every previous boot.
+The manager is ALIVE and processing events.
+### Current state (boot #91)
+- PID 1: systemd, wchan=0 (the event loop)
+- udevd: RUNNING (--daemon, PID 2547)
+- sshd: RUNNING (PID 2549)
+- dbus-broker: NOT running (the system bus socket missing)
+- The mount table: processed (no assert!)
+- The auto-start: fired at +3s (the daemon-reload triggered the ABRT
+  from a CHILD, but PID 1 survived - the crash was in the child)
+### Why the close_nointr/safe_close overrides work
+- close_nointr: exported from libsystemd-shared (nm -D shows it)
+  LD_PRELOAD CAN override it despite -Bsymbolic-functions
+- safe_close: also exported, also overridable
+- Both overrides never return -EBADF, so the assert passes
+### THE REMAINING ISSUE: dbus-broker not running
+- The Connection refused = the system bus socket does not exist
+- dbus-broker needs to start (it provides /run/dbus/system_bus_socket)
+- The direct-spawn tried but dbus-broker might have its own issues
+
+## 2026-11-11 21:35 SESSION WRAP: SYSTEMD BOOT ACHIEVED
+### THE MILESTONE (87+ boots to get here)
+systemd 262.1-1-arch boots on the Redmi Note 10 5G (camellian) from
+slot B via the SD rootfs with the nhstub LD_PRELOAD fix stack.
+
+The manager:
+- ALLOCATES (do_epoll_wait, the event loop)
+- STARTS the journal service
+- LISTENS on 25+ sockets (all the systemd runtime sockets)
+- PROCESSES the mount table (no assert with the close_nointr fix)
+- SPAWNS services (journald, udevd, tmpfiles, etc)
+- CREATES the full runtime (/run/systemd/{notify,private,units,...})
+- DBUS-DAEMON: RUNNING (the system bus socket exists)
+### THE FIX STACK (nhstub26, one LD_PRELOAD into PID1)
+1. faccessat/faccessat2: AT_EMPTY_PATH emulation via fstat
+2. waitid: P_PIDFD->P_PID + ECHILD race synthesis
+3. pidfd_spawn/pidfd_spawnp: return ENOSYS (forces the classic spawn)
+4. abort(): intercepted -> logged and returned
+5. close(): EBADF -> success (safe_close assert prevention)
+6. close_nointr + safe_close: never return -EBADF
+7. statx: simple synthetic (the #74-proven)
+8. readlink: EUNATCH retry + the /proc/1/root magic fallback
+9. open/openat: the executor O_PATH cache + the magic-path fallback
+10. clone3/clone: intercept for the pidfd->pid mapping
+### WHAT STILL FAILS (all downstream of the 4.14 kernel)
+- dbus-daemon: spins at high CPU (the socket/event rot)
+- CREDENTIALS step: kernel 5.14+ credential mounting
+- The symlink resolution: readlink EUNATCH on the SD
+- The SD I/O rot: progressive degradation after ~20-30 min
+- The display: WORKS (the test pattern!) but needs a compositor for
+  real content; the fb0 write is a stub, the mmap+direct write works
+### THE DIRECT-SPAWN FALLBACK (confirmed working)
+When the manager freezes, the init detects it and directly spawns:
+- udevd --daemon
+- dbus-broker (or dbus-daemon)
+- sshd
+- NetworkManager
+Boot #89 confirmed: udevd + sshd running with the frozen manager.
+### THE DISPLAY (confirmed working, boot #69)
+- The panel matched: dsi_panel_K19_36_02_0d_vdo (Tianma NT36672C)
+- The user SAW the test pattern (RGB stripes + white border)
+- The fb_draw binary (2.8KB, no libc) mmaps fb0 and draws
+- The fb0 memory: 0x7ba10000, 30MB CMA, 1080x2400@32bpp
+- The CRTC resumed via the fb0 unblank + the DRM SET_MASTER
+### THE GITHUB REPO
+https://github.com/NicklasSandin/Carmelian_MT6360
+- OMARCHY-BOOT.md: the README with the architecture
+- omarchy/: the nhstub source, the init script, the tools, the handoff
+### THE REMAINING WORK (for the next session)
+1. The mainline kernel port (the camellia repo) fixes ALL the kernel
+   issues at once (the I/O rot, the symlink EUNATCH, the missing
+   syscalls, the display)
+2. dropbear instead of openssh (lighter, might not spin)
+3. The sshd spin: investigate with strace (once the network is up)
+4. The display: integrate the fb_draw into the boot (a boot splash)
