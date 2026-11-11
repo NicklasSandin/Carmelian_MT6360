@@ -1,0 +1,426 @@
+#!/bin/busybox sh
+# SPDX-License-Identifier: MIT
+# omarchy-pivot-sd: camellian slot-B initramfs that pivots into the Omarchy
+# rootfs living DIRECTLY on the microSD (ext4, /dev/mmcblk0p1).
+#
+# Replaces the /data/omarchy.img design: Android userdata is metadata-
+# encrypted (f2fs magic mismatch proves ciphertext) and unreadable from the
+# stock kernel without the TEE keys. The SD card is plaintext ext4.
+#
+# NOTE: the cpio ships ONLY /bin/busybox (+ /bin/sh -> busybox). The shebang
+# runs busybox AS sh so the first line can install every applet before any
+# external command is called.
+# Safety: the storage guard keeps every UFS partition read-only; the SD is
+# the only writable block device and is the rootfs's own home.
+/bin/busybox --install -s /bin 2>/dev/null || /bin/busybox mkdir -p /bin
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+
+# ---- 0. first breath (stock kernel: no devtmpfs, no uevent helper) -----
+mkdir -p /proc /sys /dev /run /mnt
+mount -t proc proc /proc || true
+mount -t sysfs sysfs /sys || true
+# ---- pin the SD host controller awake ----------------------------------
+# its runtime suspend kills I/O with EUNATCH ("Protocol driver not
+# attached"), which hits systemd's first mount-point checks and freezes
+# PID1 forever (freeze_enter waits for all children to die - the Eternal
+# Shell never does). Pin BEFORE the pivot.
+# The runtime PM lives on the PLATFORM msdc devices (11230000/11240000 +
+# the _top clocks) - boot #64's SD log caught msdc1 powering OFF at
+# t=1378 (23 min in) because only the mmc_host layer was pinned.
+for f in /sys/bus/platform/devices/*msdc*/power/control \
+         /sys/class/mmc_host/*/device/power/control \
+         /sys/class/mmc_host/*/device/*/power/control \
+         /sys/class/block/mmcblk*/power/control; do
+  [ -w "$f" ] && echo on > "$f" 2>/dev/null
+done
+say "SD host power pinned on"
+mount -t tmpfs tmpfs /dev || true
+[ -c /dev/console ] || mknod -m 600 /dev/console c 5 1
+[ -c /dev/null ] || mknod -m 666 /dev/null c 1 3
+[ -c /dev/kmsg ] || mknod -m 660 /dev/kmsg c 1 11
+say() {
+  echo "omarchy-pivot: $*" > /dev/kmsg 2>/dev/null
+  echo "omarchy-pivot: $*" > /dev/console 2>/dev/null
+}
+say "pivot init started (pid $$)"
+busybox --install -s /bin 2>/dev/null || true
+[ -e /dev/null ] || mknod -m 666 /dev/null c 1 3
+[ -e /dev/console ] || mknod -m 600 /dev/console c 5 1
+[ -e /dev/kmsg ] || mknod -m 660 /dev/kmsg c 1 11
+[ -e /dev/tty0 ] || mknod -m 660 /dev/tty0 c 4 0
+# early best-effort watchdog node (misc 10:130) so feeding starts NOW;
+# mdev re-scans below create the authoritative node if this is wrong
+[ -c /dev/watchdog0 ] || mknod -m 600 /dev/watchdog0 c 10 130 2>/dev/null || true
+# NOTE: no early mknod for /dev/ttyGS0 - a guessed major/minor POISONS the
+# node (mdev skips existing nodes!); the getty loop's mdev -s creates the
+# real one from /sys/class/tty/ttyGS0/dev.
+mdev -s 2>/dev/null || true
+
+# ---- 1. watchdog feeder (LK armed ~31 s; use 45 s hw timeout) ----------
+FEEDER=""
+if [ -c /dev/watchdog0 ]; then
+  watchdog -F -t 5 -T 45 /dev/watchdog0 &
+  FEEDER=$!
+  say "watchdog0 feeder armed (5 s feed / 45 s timeout); systemd takes over (RuntimeWatchdogSec=20s)"
+else
+  say "WARNING: no watchdog0 node"
+fi
+
+# ---- 2. kernel filesystems ---------------------------------------------
+mkdir -p /dev/pts /sys/kernel/config /sys/fs/pstore
+mount -t devpts devpts /dev/pts || true
+mount -t tmpfs tmpfs /run || true
+mount -t configfs configfs /sys/kernel/config || true
+mount -t pstore pstore /sys/fs/pstore 2>/dev/null || true
+
+# ---- 3. USB gadget: NCM + ACM serial (ACM = rescue channel) ------------
+g=/sys/kernel/config/usb_gadget/omarchy
+mkdir -p "$g/strings/0x409" "$g/configs/c.1/strings/0x409" \
+         "$g/functions/rndis.usb0" "$g/functions/ncm.usb0" "$g/functions/acm.GS0" 2>/dev/null
+echo 0x1d6b > "$g/idVendor" 2>/dev/null
+echo 0x0104 > "$g/idProduct" 2>/dev/null
+echo "Omarchy Mobile" > "$g/strings/0x409/manufacturer" 2>/dev/null
+echo "camellian omarchy pivot" > "$g/strings/0x409/product" 2>/dev/null
+echo "omarchy-camellian" > "$g/strings/0x409/serialnumber" 2>/dev/null
+echo "RNDIS + ACM" > "$g/configs/c.1/strings/0x409/configuration" 2>/dev/null
+# RNDIS instead of NCM: the MTK NCM gadget RX is broken (Wrong NDP SIGN
+# flood - every host packet dropped); RNDIS has a native driver on Windows
+# and Linux. ACM stays linked: it IS the serial console. NCM is only a
+# fallback if the kernel lacks f_rndis.
+ln -sf "$g/functions/rndis.usb0" "$g/configs/c.1/rndis.usb0" 2>/dev/null \
+  || ln -sf "$g/functions/ncm.usb0" "$g/configs/c.1/ncm.usb0" 2>/dev/null || true
+ln -sf "$g/functions/acm.GS0" "$g/configs/c.1/acm.GS0" 2>/dev/null || true
+udc=""
+for _ in $(seq 1 60); do
+  for c in /sys/class/udc/*; do
+    [ -e "$c" ] && udc=${c##*/} && break
+  done
+  [ -n "$udc" ] && break
+  sleep 1
+done
+if [ -n "$udc" ] && echo "$udc" > "$g/UDC" 2>/dev/null; then
+  say "USB gadget bound to $udc"
+else
+  say "gadget bind failed/absent; serial console unavailable until systemd"
+fi
+
+# NCM side (RX is broken on this gadget driver, but harmless to try)
+ifconfig lo up 2>/dev/null || true
+# RNDIS function netdev: f_rndis names it after the instance id - it came
+# up as "rndis0" on this kernel (usb0 was taken by the stale ncm function
+# name). Cover both names.
+for _ in $(seq 1 10); do
+  { ifconfig rndis0 >/dev/null 2>&1 || ifconfig usb0 >/dev/null 2>&1; } && break
+  mdev -s 2>/dev/null || true
+  sleep 1
+done
+net_up=0
+for net in rndis0 usb0; do
+  if ifconfig "$net" >/dev/null 2>&1; then
+    ifconfig "$net" 172.16.42.1 netmask 255.255.255.0 up 2>/dev/null \
+      && say "$net = 172.16.42.1/24" && net_up=1
+    # link-local too: a Windows host with no DHCP/admin gets APIPA on the
+    # same subnet, so ping/HTTP to the phone works with zero host-side setup
+    ip addr add 169.254.111.137/16 dev "$net" 2>/dev/null \
+      && say "$net + 169.254.111.137/16"
+  fi
+done
+[ "$net_up" = 1 ] || say "no usb netdev (serial is the channel)"
+
+# serial rescue getty on ttyGS0 (autologin root, cable-local).
+# PROVEN in boot #4: this ghost shell SURVIVES switch_root and remains the
+# serial access into the running system (systemd's own serial-getty cannot
+# bind while it lives - that is fine, the ghost IS the console).
+(
+  while :; do
+    [ -c /dev/ttyGS0 ] || mdev -s 2>/dev/null || true
+    setsid getty -n -l /bin/sh 115200 ttyGS0 vt100
+    sleep 1
+  done
+) &
+GETTY_LOOP=$!
+
+
+# ---- 4. UFS guard: keep every UFS partition read-only ------------------
+storage_guard() {
+  mdev -s 2>/dev/null || true
+  for s in /sys/class/block/sd*; do
+    [ -r "$s/ro" ] || continue
+    name=${s##*/}
+    [ -b "/dev/$name" ] || continue
+    [ "$(cat "$s/ro")" = 1 ] && continue
+    blockdev --setro "/dev/$name" 2>/dev/null >/dev/null
+  done
+  return 0
+}
+storage_guard
+(
+  while :; do
+    storage_guard
+    sleep 5
+  done
+) &
+
+# ---- 5. device settle: retry mdev until the SD + watchdog exist --------
+n=0
+while [ $n -lt 25 ]; do
+  mdev -s 2>/dev/null || true
+  [ -b /dev/mmcblk0p1 ] && break
+  sleep 1
+  n=$((n + 1))
+done
+if [ -n "$FEEDER" ] && ! kill -0 "$FEEDER" 2>/dev/null; then
+  if [ -c /dev/watchdog0 ]; then
+    watchdog -F -t 5 -T 45 /dev/watchdog0 &
+    FEEDER=$!
+    say "watchdog feeder restarted on mdev-created node"
+  else
+    say "watchdog feeder dead and no node - LK timeout will hit"
+  fi
+fi
+
+# ---- 6. mount the SD rootfs --------------------------------------------
+mkdir -p /mnt/omarchy
+SD=""
+for cand in /dev/mmcblk0p1 /dev/mmcblk1p1 /dev/mmcblk0; do
+  [ -b "$cand" ] && SD="$cand" && break
+done
+if [ -z "$SD" ]; then
+  say "no SD device found"
+  cat /proc/partitions > /dev/console 2>/dev/null
+fi
+if [ -n "$SD" ]; then
+  say "SD candidate: $SD"
+  # ---- BACKGROUND MOUNT: a rotted MSDS can D-STATE the mount syscall and
+  # block the main init FOREVER (boots #58-#61 never pivoted). Run the
+  # mount in a subshell; the main init waits a bounded 45 s and falls back
+  # to RESCUE MODE (live serial console) instead of hanging.
+  rm -f /sdmount.rc
+  (
+    mount -t ext4 -o rw "$SD" /mnt/omarchy >/dev/null 2>&1
+    rc=$?
+    if [ "$rc" != "0" ]; then
+      mount -t ext4 -o ro "$SD" /mnt/omarchy >/dev/null 2>&1
+      rc=$?
+    fi
+    echo "$rc" > /sdmount.rc 2>/dev/null
+  ) &
+  mwait=0
+  while [ ! -f /sdmount.rc ] && [ $mwait -lt 45 ]; do
+    sleep 1
+    mwait=$((mwait + 1))
+  done
+  if [ "$(cat /sdmount.rc 2>/dev/null)" = "0" ]; then
+    say "SD rootfs mounted (rw or ro) after ${mwait}s"
+  else
+    say "SD mount DID NOT COMPLETE in ${mwait}s (D-state suspected) - RESCUE"
+  fi
+fi
+
+OMARCHY_OK=0
+if [ -f /mnt/omarchy/etc/os-release ] && grep -q 'ID=omarchy' /mnt/omarchy/etc/os-release; then
+  say "VERIFIED: omarchy rootfs present"
+  OMARCHY_OK=1
+else
+  say "rootfs verification FAILED"
+fi
+
+# ---- checkpoint: the initramfs-phase kernel log onto the SD ---------------
+# If any later phase hangs or the USB gadget dies, this file (readable from
+# slot A via vold) shows exactly how far the boot got.
+if [ -f /mnt/omarchy/etc/os-release ]; then
+  dmesg > /mnt/omarchy/KMSG-BOOT.txt 2>/dev/null
+  sync
+  say "KMSG-BOOT.txt checkpoint written to the SD"
+fi
+
+# ---- 7. pivot: hand PID 1 to systemd ------------------------------------
+if [ "$OMARCHY_OK" = "1" ] && [ -x /mnt/omarchy/sbin/init ]; then
+  say "handing PID 1 to systemd (getty ghost stays as the serial console)"
+  # KEEP the getty ghost alive: proven in boots #2-#12 it survives the
+  # pivot and IS the serial console into the running system. Killing it
+  # (boots #17+) broke the only working channel.
+  # Static /dev nodes in the rootfs (persistent, on the SD): systemd's
+  # log_open needs /dev/kmsg BEFORE it mounts its own /dev tmpfs - without
+  # it every debug line is silently lost (the empty-/dev failure of boots
+  # 17-19).
+  # nhstub now ships INSIDE the initramfs (no adb needed to update it);
+  # the SD write-then-read can be incoherent on the rotting kernel, so
+  # verify the sha256 and REWRITE up to 3 times until it sticks.
+  EXPECT=696406933668e21c58ead6330592e7b00ed1c68fb3f1103cb64801bcecc7faa3
+  if [ -f /preload.so.gz ]; then
+    /bin/busybox gunzip -c /preload.so.gz > /mnt/omarchy/preload.so 2>/dev/null
+    /bin/busybox sync
+    GOT=$(/bin/busybox sha256sum /mnt/omarchy/preload.so 2>/dev/null | /bin/busybox cut -d' ' -f1)
+    try=1
+    while [ "$GOT" != "$EXPECT" ] && [ $try -le 3 ]; do
+      say "preload.so sha mismatch (try $try): $GOT - rewriting"
+      /bin/busybox gunzip -c /preload.so.gz > /mnt/omarchy/preload.so 2>/dev/null
+      /bin/busybox sync
+      GOT=$(/bin/busybox sha256sum /mnt/omarchy/preload.so 2>/dev/null | /bin/busybox cut -d' ' -f1)
+      try=$((try + 1))
+    done
+    if [ "$GOT" = "$EXPECT" ]; then
+      say "nhstub verified on SD (sha $GOT)"
+    else
+      say "WARNING: nhstub sha STILL wrong after retries: $GOT"
+    fi
+  elif [ -f /mnt/omarchy/preload.so.gz ]; then
+    gunzip -c /mnt/omarchy/preload.so.gz > /mnt/omarchy/preload.so 2>/dev/null && say "nhstub gunzipped on SD"
+  fi
+  chroot /mnt/omarchy mknod -m 600 dev/kmsg c 1 11 2>/dev/null
+  chroot /mnt/omarchy mknod -m 666 dev/null c 1 3 2>/dev/null
+  chroot /mnt/omarchy mknod -m 666 dev/zero c 1 5 2>/dev/null
+  chroot /mnt/omarchy mknod -m 600 dev/console c 5 1 2>/dev/null
+  chroot /mnt/omarchy mknod -m 666 dev/random c 1 8 2>/dev/null
+  chroot /mnt/omarchy mknod -m 666 dev/urandom c 1 9 2>/dev/null
+  chroot /mnt/omarchy mknod -m 666 dev/tty c 5 0 2>/dev/null
+  # ---- THE PIVOT: pivot_root, NOT switch_root -----------------------------
+  # busybox switch_root MS_MOVEs the rootfs mount - on this kernel that
+  # breaks the MSDC request path (every stat on the new root = EUNATCH,
+  # "Protocol driver not attached") and systemd freezes. pivot_root swaps
+  # the roots in place: the SD mount object is never touched.
+  #
+  # THE PREPARE SCRIPT: planted in the rootfs, run at Eternal-Shell spawn
+  # (BEFORE systemd's mount-point checks): it mounts /proc /sys /dev itself
+  # so systemd finds healthy mounts and never enters the freeze.
+  cat > /mnt/omarchy/boot-prepare.sh <<'PREP'
+#!/bin/bash
+export PATH=/usr/bin:/usr/sbin:/bin:/sbin
+echo "boot-prepare: mounting API filesystems with health retries" > /dev/ttyGS0
+ok=0
+for i in $(seq 1 60); do
+  mount -t proc proc /proc 2>/dev/null
+  mount -t sysfs sysfs /sys 2>/dev/null
+  mount -t tmpfs tmpfs /dev 2>/dev/null
+  mount -t tmpfs tmpfs /run 2>/dev/null
+  mount -t devpts devpts /dev/pts 2>/dev/null
+  mount -t tmpfs tmpfs /dev/shm 2>/dev/null
+  mount -t tmpfs tmpfs /tmp 2>/dev/null
+  mount -t cgroup2 none /sys/fs/cgroup 2>/dev/null
+  mkdir -p dev/pts dev/shm /sys/fs/cgroup/systemd 2>/dev/null
+  mount -t cgroup -o none,name=systemd none /sys/fs/cgroup/systemd 2>/dev/null
+  mkdir -p dev/pts dev/shm 2>/dev/null
+  mknod -m 600 dev/console c 5 1 2>/dev/null
+  mknod -m 666 dev/null c 1 3 2>/dev/null
+  mknod -m 666 dev/zero c 1 5 2>/dev/null
+  mknod -m 600 dev/kmsg c 1 11 2>/dev/null
+  mknod -m 660 dev/tty0 c 4 0 2>/dev/null
+  mknod -m 666 dev/tty c 5 0 2>/dev/null
+  # ttyGS0: DYNAMIC major/minor from sysfs - a guessed 511:0 poisons the
+  # node (mdev-less omarchy can't correct it) and the shell's stdio dies.
+  read tmaj tmin < /sys/class/tty/ttyGS0/dev 2>/dev/null
+  if [ -n "$tmaj" ]; then
+    mknod -m 620 dev/ttyGS0 c $tmaj $tmin 2>/dev/null
+    echo "boot-prepare: ttyGS0 = $tmaj:$tmin" > /dev/kmsg 2>/dev/null
+  else
+    echo "boot-prepare: no ttyGS0 in sysfs!" > /dev/kmsg 2>/dev/null
+  fi
+  if stat -f /proc >/dev/null 2>&1 && stat -f /sys >/dev/null 2>&1 && stat -f /dev >/dev/null 2>&1 && stat / >/dev/null 2>&1; then
+    echo "boot-prepare: mounts HEALTHY after $i tries" > /dev/ttyGS0
+    ok=1
+    break
+  fi
+  echo "boot-prepare: try $i unhealthy, remounting" > /dev/ttyGS0
+  umount /proc 2>/dev/null
+  umount /sys 2>/dev/null
+  sleep 1
+done
+# nhstub now comes from the initramfs (gunzipped pre-pivot to /preload.so
+# by the init). Do NOT gunzip any SD copy here - it would overwrite the
+# newer initramfs stub with an old one.
+# NOTE: /run IS mounted here (tmpfs, pre-pivot). Removing it (boots
+# #58-#62) made every boot die uncleanly post-pivot - systemd's own /run
+# mount hits the same first-mounts EUNATCH disease this prepare exists to
+# bypass. The #57 configuration (with /run) kept the manager alive 31 min.
+# Pre-read the systemd executor binary to warm the page cache - the post-pivot
+# SD I/O degrades and the executor pin fails with EINVAL on cold reads
+/bin/busybox cat /usr/lib/systemd/systemd-executor > /dev/null 2>/dev/null
+/bin/busybox cat /usr/lib/systemd/systemd > /dev/null 2>/dev/null
+/bin/busybox cat /usr/lib/systemd/libsystemd-shared-257.4 > /dev/null 2>/dev/null
+if [ "$ok" = "1" ]; then
+  touch /READY 2>/dev/null
+  echo "boot-prepare: READY flag set" > /dev/ttyGS0
+fi
+PREP
+  chmod +x /mnt/omarchy/boot-prepare.sh
+  mkdir -p /mnt/omarchy/old-root
+  rm -f /mnt/omarchy/READY
+  cd /mnt/omarchy || say "cd to new root FAILED"
+  say "PIVOT: spawning the Eternal Shell (mount retries first)"
+  ( chroot . /bin/bash /boot-prepare.sh < /dev/ttyGS0 > /dev/ttyGS0 2>&1 ) &
+  # wait for the prepare's READY flag (the mounts healthy) - max 90 s
+  n=0
+  while [ ! -f /mnt/omarchy/READY ] && [ $n -lt 90 ]; do
+    sleep 1
+    n=$((n + 1))
+  done
+  say "prepare flag ready after $n s; PIVOT: pivot_root + exec init"
+  /bin/busybox pivot_root . old-root && say "pivot_root done: / = omarchy, /old-root = initramfs"
+  sync
+  # ---- POST-PIVOT SD KMSG LOGGER -------------------------------------------
+  # The USB gadget can die within minutes on some boots and the pstore
+  # console is a fossil (never written). Snapshot dmesg to the SD every 5 s.
+  # PATH NOTE: this job is spawned pre-pivot, so its "/" is the INITRAMFS -
+  # the SD is at /mnt/omarchy in THIS job's view (the same mount the pivot
+  # will promote to /). Writing /KMSG-DEBUG.txt (boot #62) went into the
+  # initramfs ramfs and vanished.
+  (
+    sleep 20
+    while :; do
+      /bin/busybox dmesg > /mnt/omarchy/KMSG-DEBUG.txt 2>/dev/null
+      /bin/busybox sync
+      sleep 5
+    done
+  ) &
+  # ---- POST-PIVOT SERVICE AUTO-START ---------------------------------------
+  # ~3 s post-pivot: the SD I/O is healthy only for the first ~15-30 s of
+  # uptime. The manager may freeze later on a mount-table assert; the
+  # services started before that keep running, and we spawn the critical
+  # ones DIRECTLY (bypassing systemctl/dbus) as a fallback.
+  (
+    sleep 3
+    # try the systemctl path first (works if the manager is still alive)
+    chroot /mnt/omarchy /usr/bin/ln -sf dbus-broker.service /etc/systemd/system/dbus.service 2>/dev/null
+    chroot /mnt/omarchy /usr/bin/systemctl stop --no-block systemd-journald.socket systemd-journald-dev-log.socket systemd-journald-audit.socket 2>/dev/null
+    chroot /mnt/omarchy /usr/bin/systemctl start --no-block my-journald 2>/dev/null
+    chroot /mnt/omarchy /usr/bin/systemctl daemon-reload 2>/dev/null
+    chroot /mnt/omarchy /usr/bin/systemctl start --no-block sshd.service NetworkManager.service 2>/dev/null
+    # if the manager froze, spawn the critical daemons directly
+    sleep 5
+    if ! chroot /mnt/omarchy /usr/bin/timeout 3 /usr/bin/systemctl is-system-running >/dev/null 2>&1; then
+      echo "omarchy-pivot: manager frozen - direct-spawning critical services" > /dev/kmsg 2>/dev/null
+      chroot /mnt/omarchy /usr/lib/systemd/systemd-udevd --daemon 2>/dev/null
+      chroot /mnt/omarchy /usr/bin/dbus-broker --system 2>/dev/null &
+      chroot /mnt/omarchy /usr/sbin/sshd 2>/dev/null
+      chroot /mnt/omarchy /usr/bin/NetworkManager --no-daemon 2>/dev/null &
+    fi
+    echo "omarchy-pivot: service auto-start done" > /dev/kmsg 2>/dev/null
+  ) &
+  say "PIVOT: exec /sbin/init with nhstub LD_PRELOAD (NO executor env var: v262 treats it as authoritative-fatal)"
+  SYSTEMD_CGROUP_ENABLE_LEGACY_FORCE=1 LD_PRELOAD=/preload.so exec chroot . /sbin/init
+fi
+
+# ---- 7. rescue: pivot failed --------------------------------------------
+say "RESCUE MODE: pivot failed; root shell on serial ttyGS0 and telnet 172.16.42.1:23"
+telnetd -l /bin/sh -p 23 2>/dev/null && say "rescue telnetd up" || true
+# serial autologin shell - rescue path only, so a successful pivot never
+# leaves a ghost holding ttyGS0 (systemd's serial-getty needs it free)
+(
+  while :; do
+    [ -c /dev/ttyGS0 ] || mdev -s 2>/dev/null || true
+    setsid getty -n -l /bin/sh 115200 ttyGS0 vt100
+    sleep 1
+  done
+) &
+say "auto-reboot to fastboot in 600 s"
+(
+  sleep 600
+  sync
+  say "rescue ceiling reached; rebooting to bootloader"
+  /sbin/reboot-bootloader 2>/dev/null || reboot -f
+) &
+# PID 1 must never exit
+while :; do
+  sleep 60
+done
