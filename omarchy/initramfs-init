@@ -247,7 +247,7 @@ if [ "$OMARCHY_OK" = "1" ] && [ -x /mnt/omarchy/sbin/init ]; then
   # nhstub now ships INSIDE the initramfs (no adb needed to update it);
   # the SD write-then-read can be incoherent on the rotting kernel, so
   # verify the sha256 and REWRITE up to 3 times until it sticks.
-  EXPECT=696406933668e21c58ead6330592e7b00ed1c68fb3f1103cb64801bcecc7faa3
+  EXPECT=433a2e1f98ce17451ad7f8da4ef473181b2bdcd7528505fc0dc25395dc870810
   if [ -f /preload.so.gz ]; then
     /bin/busybox gunzip -c /preload.so.gz > /mnt/omarchy/preload.so 2>/dev/null
     /bin/busybox sync
@@ -385,6 +385,8 @@ PREP
     chroot /mnt/omarchy /usr/bin/systemctl stop --no-block systemd-journald.socket systemd-journald-dev-log.socket systemd-journald-audit.socket 2>/dev/null
     chroot /mnt/omarchy /usr/bin/systemctl start --no-block my-journald 2>/dev/null
     chroot /mnt/omarchy /usr/bin/systemctl daemon-reload 2>/dev/null
+    chroot /mnt/omarchy /bin/mkdir -p /run/dbus
+    chroot /mnt/omarchy /usr/bin/dbus-daemon --system 2>/dev/null
     chroot /mnt/omarchy /usr/bin/systemctl start --no-block sshd.service NetworkManager.service 2>/dev/null
     # if the manager froze, spawn the critical daemons directly
     sleep 5
