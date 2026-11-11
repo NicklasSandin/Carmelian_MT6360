@@ -1202,3 +1202,29 @@ https://github.com/NicklasSandin/Carmelian_MT6360
 2. dropbear instead of openssh (lighter, might not spin)
 3. The sshd spin: investigate with strace (once the network is up)
 4. The display: integrate the fb_draw into the boot (a boot splash)
+
+## 2026-11-11 22:10 THE OMARCHY TERMINAL UI IS ON THE DISPLAY
+### The phone screen shows the full Omarchy terminal UI!
+- Header bar: OMARCHY LINUX in green + the status line
+- Terminal body: boot messages in the Omarchy dark theme
+- Android-style launcher bar: TERM CONF FS PKG PWR icons
+- Green accent line under the header
+### The fix: the ORDER matters
+The previous fb_term called mmap BEFORE unblanking. The mmap hung
+because the display wasnt enabled. The fix: unblank FIRST, then mmap.
+1. open /dev/fb0
+2. unblank (ioctl FBIOPUT_BLANK + sysfs writes)
+   -> triggers mtk_drm_crtc_atomic_resume = the display turns on
+3. mmap /dev/fb0 (the framebuffer memory is now accessible)
+4. draw the UI
+5. read the serial input for the terminal
+### The fb_term2 binary (66KB, static, no libc)
+- Draws the full Omarchy UI with the custom 5x7 bitmap font
+- Reads the serial input and echoes to the terminal
+- Runs as a background process holding the framebuffer mapping
+### The current boot (#91) state
+- The manager: event loop (wchan=0)
+- The journal: running
+- udevd: running
+- sshd: running
+- The display: SHOWING THE OMARCHY TERMINAL UI
