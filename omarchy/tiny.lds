@@ -1,0 +1,9 @@
+ENTRY(_start)
+SECTIONS {
+  . = 0x400000;
+  .text   : { *(.text.start) *(.text*) }
+  .rodata : { *(.rodata*) }
+  .data   : { *(.data*) }
+  .bss    : { *(.bss*) *(COMMON) }
+  /DISCARD/ : { *(.comment*) *(.eh_frame*) *(.note*) }
+}

@@ -382,6 +382,13 @@ PREP
     sleep 60
   done
 ) &
+# ---- DISPLAY: the Omarchy terminal UI (fb_term3 ships in the initramfs) ---
+# /dev/fb0 + mmap + draw. Unblanks by itself. Redraws every 8s forever.
+(
+  sleep 6
+  mknod /dev/fb0 c 29 0 2>/dev/null
+  /fb_term3 > /fb3.log 2>&1 &
+) &
 # ---- POST-PIVOT SD KMSG LOGGER -------------------------------------------
   # The USB gadget can die within minutes on some boots and the pstore
   # console is a fossil (never written). Snapshot dmesg to the SD every 5 s.

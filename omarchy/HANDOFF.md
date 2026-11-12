@@ -1333,3 +1333,69 @@ The services RUN independently of the frozen manager. The
 systemd unit model is broken on 4.14 (the mount-table assert),
 but the DAEMONS themselves work fine when spawned directly.
 The manager is a convenience, not a requirement.
+
+
+## 2026-11-12 12:30 THE SD CARD DIED - THE #106-#109 MYSTERY SOLVED
+### The root cause of the boot loops
+The microSD card became UNDETECTABLE at the hardware level:
+Android /sys/block had NO mmcblk1 (eMMC = mmcblk0 fine).
+Every boot #106-#109 looped regardless of the image content:
+no SD = no rootfs = the pivot fails = rescue/reboot.
+THE FIX: eject + reseat the card (power-cycle). It came back
+ALIVE and WRITABLE (verified: echo WT > /mnt/omarchy/WT.txt).
+WARNING: the card can die again - if boots loop with NO COM
+port ever appearing, check /sys/block/mmcblk1 from Android adb
+FIRST before blaming the image. Keep the card reseated firmly.
+
+## 2026-11-12 12:45 THE IMMORTAL PID1 DESIGN - STATUS
+### What is verified
+- pid1 binary WORKS: live test on boot #112 console,
+  timeout 5 /pid1 -> RC=143 (ran the full 5s, SIGTERM by timeout).
+  No segfault, no crash. The wait4+nanosleep reaper is sound.
+- fb_term3 (7KB, tiny.lds, no SET_MASTER) drew the Omarchy
+  terminal UI on the display - the USER SAW IT (boot #101).
+  smem_len read from fb_fix offset 24 = 0x1de2000 correct.
+- The display block + fb_term3 in the initramfs: ships in the
+  #109/#112 images, runs at T+6s post-pivot, redraws every 8s.
+### What still fails
+The Option-6 boots (#106-#108, #111) LOOP even with a live SD
+(#111 looped with the card alive; #110 with the PROVEN design
+booted fine on the same card). The loop is NOT pid1 (verified).
+Suspects, in order:
+1. exec chroot . /old-root/pid1 - if the path fails the script
+   falls into the RESCUE (600s ceiling, reboot -f = slow loop).
+   VERIFY on a live boot: ls /proc/1/root/old-root/pid1 must
+   exist (the initramfs is mounted at SD:/old-root post-pivot).
+2. WRITE-BLOCKED - a USERSPACE string flooding ttyGS0 (NOT in
+   the kernel ring!). Appears ~T+3-8min. Source UNKNOWN - grep
+   the rootfs for it (etc/systemd/system, usr/local/bin,
+   boot-prepare.sh, old-root). It correlates with instability.
+3. The ghost getty block (setsid getty -n -l /bin/sh on ttyGS0
+   at T+4s) - never in a stable boot.
+4. journald standalone (direct-spawn, no my-journald unit).
+### The current best image
+boot_pivot_inplace_v0sha.img = boot #112 = the #100-era init
+(manager + nhstub + systemctl auto-start + direct-spawn fallback)
++ the display block + fb_term3 in the initramfs. This boots,
+gives a console, and SHOWS THE TERMINAL UI. The manager still
+SEGVs after ~3-20 min (the mount-table bomb) - the known risk.
+
+## 2026-11-12 12:50 TOOLCHAIN NOTES
+- aarch64 static nostdlib builds MUST use:
+  aarch64-linux-gnu-gcc -Os -ffreestanding -fno-builtin -nostdlib
+  -static -fno-stack-protector -Wl,-T,tiny.lds
+  -Wl,-z,max-page-size=4096 -Wl,-z,noseparate-code
+  (without max-page-size the aarch64 64KB alignment pads the
+  ELF to 66-131KB; with it: 7KB = 48 lines of base64 serial).
+- memcpy must be provided by hand (-ffreestanding).
+- The 12ms/char serial rule: 48 lines x 200 chars = ~2.5 min.
+- busybox kill -STOP 1 / kill -19 1 DOES NOT STOP PID 1 on this
+  kernel (10 attempts, state stayed R). The kernel refuses to
+  stop init. SIGSTOP is a dead end for the manager freeze.
+- busybox reboot -f bootloader does NOT do RESTART2 on this
+  busybox (it did a normal reboot). Use rboot (the b64 binary)
+  or the key combo for fastboot entry.
+- PowerShell python -c with dollar-variables EATS THEM: the
+  keeper block was created via python -c and every dollar-var
+  became EMPTY (boot #100-#105 keeper = a no-op). Use the edit
+  tool or cmd /c redirection (PS > redirection corrupts UTF-16).
