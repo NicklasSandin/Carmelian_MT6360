@@ -404,58 +404,68 @@ PREP
       sleep 5
     done
   ) &
-  # ---- POST-PIVOT SERVICE AUTO-START ---------------------------------------
-  # ~3 s post-pivot: the SD I/O is healthy only for the first ~15-30 s of
-  # uptime. The manager may freeze later on a mount-table assert; the
-  # services started before that keep running, and we spawn the critical
-  # ones DIRECTLY (bypassing systemctl/dbus) as a fallback.
+  # ---- POST-PIVOT SERVICE AUTO-START (no manager - direct spawn) ------------
+  # There is no systemd manager (PID 1 = the immortal reaper). systemctl
+  # would hang: every service is spawned DIRECTLY. journald standalone
+  # self-creates its sockets; journalctl reads the same /run/log/journal.
   (
     sleep 3
-    # try the systemctl path first (works if the manager is still alive)
-    chroot /mnt/omarchy /usr/bin/ln -sf dbus-broker.service /etc/systemd/system/dbus.service 2>/dev/null
-    chroot /mnt/omarchy /usr/bin/systemctl stop --no-block systemd-journald.socket systemd-journald-dev-log.socket systemd-journald-audit.socket 2>/dev/null
-    chroot /mnt/omarchy /usr/bin/systemctl start --no-block my-journald 2>/dev/null
-    chroot /mnt/omarchy /usr/bin/systemctl daemon-reload 2>/dev/null
-    chroot /mnt/omarchy /bin/mkdir -p /run/dbus
-    chroot /mnt/omarchy /bin/rm -f /run/dbus/pid
+    chroot /mnt/omarchy /bin/mkdir -p /run/dbus /run/log/journal /run/systemd/journal 2>/dev/null
+    chroot /mnt/omarchy /bin/rm -f /run/dbus/pid 2>/dev/null
+    # the system dbus
     chroot /mnt/omarchy /usr/bin/dbus-daemon --system 2>/dev/null
-    chroot /mnt/omarchy /usr/bin/systemctl start --no-block sshd.service NetworkManager.service 2>/dev/null
-    # the display: run the Omarchy terminal UI (from the rootfs)
+    # udev (no trigger replay - the blkid storm on the rotting SD hangs boots)
+    chroot /mnt/omarchy /usr/lib/systemd/systemd-udevd --daemon 2>/dev/null
+    # remote access + network
+    chroot /mnt/omarchy /usr/sbin/sshd 2>/dev/null
+    chroot /mnt/omarchy /usr/bin/NetworkManager --no-daemon >/dev/null 2>&1 &
+    # the journal LAST (its fsync loop on the SD is heavy - boot first)
+    chroot /mnt/omarchy /usr/lib/systemd/systemd-journald >/dev/null 2>&1 &
+    echo "omarchy-pivot: services direct-spawned (no manager)" > /dev/kmsg 2>/dev/null
+    # the display device nodes (fb_term3 runs from the initramfs, not here)
     chroot /mnt/omarchy /bin/mknod /dev/fb0 c 29 0 2>/dev/null
     chroot /mnt/omarchy /bin/mkdir -p /dev/dri 2>/dev/null
     chroot /mnt/omarchy /bin/mknod /dev/dri/card0 c 226 0 2>/dev/null
-    # if the manager froze, spawn the critical daemons directly
-    sleep 5
-    if ! chroot /mnt/omarchy /usr/bin/timeout 3 /usr/bin/systemctl is-system-running >/dev/null 2>&1; then
-      echo "omarchy-pivot: manager frozen - direct-spawning critical services" > /dev/kmsg 2>/dev/null
-      chroot /mnt/omarchy /usr/lib/systemd/systemd-udevd --daemon 2>/dev/null
-      chroot /mnt/omarchy /usr/bin/dbus-broker --system 2>/dev/null &
-      chroot /mnt/omarchy /usr/sbin/sshd 2>/dev/null
-      chroot /mnt/omarchy /usr/bin/NetworkManager --no-daemon 2>/dev/null &
-    fi
     echo "omarchy-pivot: service auto-start done" > /dev/kmsg 2>/dev/null
   ) &
-  say "PIVOT: exec /sbin/init with nhstub LD_PRELOAD (NO executor env var: v262 treats it as authoritative-fatal)"
-  SYSTEMD_CGROUP_ENABLE_LEGACY_FORCE=1 LD_PRELOAD=/preload.so exec chroot . /sbin/init
+  # ---- SERIAL CONSOLE --------------------------------------------------------
+  # The PRE-PIVOT ghost getty (spawned early in this init) is THE console -
+  # it survives everything and is the proven 100-boot reader. A second
+  # getty here split the input characters between readers (the tty storm).
+  # REMOVED - do not re-add.
+  # ---- IMMORTAL PID 1 --------------------------------------------------------
+  # DISCOVERY (boot #113 mount map): pivot_root NEVER succeeds on this
+  # kernel - the SD stays at /mnt/omarchy and the namespace root stays the
+  # initramfs. The old design only worked via `chroot . /sbin/init`.
+  # So: copy the reaper ONTO the SD (the initramfs is invisible from the
+  # chroot), then chroot to it. PID 1 = a wait4 loop that cannot crash.
+  say "PIVOT: PID 1 = immortal reaper via chroot /pid1"
+  echo "omarchy-pivot: exec path - copying pid1 to the SD" > /dev/kmsg 2>/dev/null
+  cp /pid1 /mnt/omarchy/pid1 2>/dev/null
+  if [ -f /mnt/omarchy/pid1 ]; then
+    echo "omarchy-pivot: pid1 copy OK size=$(wc -c < /mnt/omarchy/pid1)" > /dev/kmsg 2>/dev/null
+  else
+    echo "omarchy-pivot: pid1 copy FAILED" > /dev/kmsg 2>/dev/null
+  fi
+  sync
+  echo "omarchy-pivot: exec chroot /pid1 NOW" > /dev/kmsg 2>/dev/null
+  exec chroot . /pid1
 fi
 
 # ---- 7. rescue: pivot failed --------------------------------------------
-say "RESCUE MODE: pivot failed; root shell on serial ttyGS0 and telnet 172.16.42.1:23"
+# NOTE: NO getty here anymore - the normal-path ghost getty block owns
+# ttyGS0. Two getty loops = two readers = the input splits between them.
+say "RESCUE MODE: pivot failed; telnet 172.16.42.1:23"
+echo "omarchy-pivot: RESCUE entered - the exec failed" > /dev/kmsg 2>/dev/null
 telnetd -l /bin/sh -p 23 2>/dev/null && say "rescue telnetd up" || true
-# serial autologin shell - rescue path only, so a successful pivot never
-# leaves a ghost holding ttyGS0 (systemd's serial-getty needs it free)
-(
-  while :; do
-    [ -c /dev/ttyGS0 ] || mdev -s 2>/dev/null || true
-    setsid getty -n -l /bin/sh 115200 ttyGS0 vt100
-    sleep 1
-  done
-) &
+# serial autologin shell: the normal-path ghost getty block owns ttyGS0.
+# The old rescue getty loop is REMOVED (two readers split the input).
 say "auto-reboot to fastboot in 600 s"
 (
   sleep 600
   sync
   say "rescue ceiling reached; rebooting to bootloader"
+  echo "omarchy-pivot: rescue 600s ceiling - rebooting" > /dev/kmsg 2>/dev/null
   /sbin/reboot-bootloader 2>/dev/null || reboot -f
 ) &
 # PID 1 must never exit

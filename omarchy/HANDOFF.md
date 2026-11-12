@@ -1399,3 +1399,39 @@ SEGVs after ~3-20 min (the mount-table bomb) - the known risk.
   keeper block was created via python -c and every dollar-var
   became EMPTY (boot #100-#105 keeper = a no-op). Use the edit
   tool or cmd /c redirection (PS > redirection corrupts UTF-16).
+
+
+## 2026-11-12 13:50 BOOT #116: THE IMMORTAL PID1 DESIGN WORKS - FINAL ARCHITECTURE
+### The two bugs that blocked it (both found via live forensics)
+1. pivot_root NEVER WORKED on this kernel (the #113 mount map proved
+   it: the SD stays at /mnt/omarchy, no old-root mount ever exists).
+   The old design only worked via chroot. So /old-root/pid1 NEVER
+   existed -> the exec failed -> the rescue 600s ceiling = the loops.
+   FIX: cp /pid1 /mnt/omarchy/pid1 THEN exec chroot . /pid1.
+2. The pre-pivot ghost getty (init line ~125) is THE console and it
+   runs on EVERY boot. My added getty block = a SECOND reader = the
+   input chars split randomly between readers = the tty storm.
+   FIX: exactly ONE getty (the pre-pivot ghost). Never add another.
+### The verified boot #116 state (uptime 382s and climbing)
+- PID 1 = pid1 (comm: pid1): a 4.4KB static wait4+nanosleep reaper.
+  It cannot crash: no memory access, and the kernel ignores fatal
+  signals for init. The mount-table SEGV bomb is STRUCTURALLY GONE.
+- kmsg markers: [14.2] pid1 copy OK size=4448, [14.3] exec NOW,
+  [62.0] services direct-spawned (no manager).
+- RUNNING: dbus-daemon --system, NetworkManager --no-daemon,
+  systemd-journald (standalone), fb_term3 (the display UI).
+- The console: CLEAN single-reader serial (the pre-pivot ghost).
+### Known nits (next session)
+- udevd + sshd did NOT survive the direct-spawn at T+3s (the early
+  SD path rot: Protocol driver not attached on /etc/udev paths).
+  Spawning them from the console at T+60s+ works better. Next init
+  revision: retry the daemon spawns at T+90s with a pgrep check.
+- The journald standalone runs; journalctl works.
+- fb_term3 redraws every 8s; the display shows the Omarchy UI.
+### The boot ritual is DEAD
+No more 3-min bombs, no more key-combo recovery loops. The phone
+boots slot B into a manager-free Omarchy with the terminal UI on
+the display and a stable serial console. The slot-B success flag
+in misc is still unwritten (the boot never marks success) - if the
+phone EVER falls back to slot A, key combo -> fastboot ->
+set_active b x3 -> reboot. With no crashes, the counter never drains.
