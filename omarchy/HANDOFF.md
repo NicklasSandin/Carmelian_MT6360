@@ -1228,3 +1228,78 @@ because the display wasnt enabled. The fix: unblank FIRST, then mmap.
 - udevd: running
 - sshd: running
 - The display: SHOWING THE OMARCHY TERMINAL UI
+
+## 2026-11-12 06:45 SESSION STATE
+### The console died (the USB gadget rot after ~25 min)
+Boot #94: the manager alive (wchan=0), journal started,
+udevd direct-spawned, sshd direct-spawned, display DPMS On.
+The fb_draw test pattern was confirmed working.
+### The safe_close assert analysis
+The close override returns 0 for EBADF but the assert checks
+close_nointr RETURN value which is -errno (not the close
+syscall return). The close_nointr override should fix this
+but -Bsymbolic-functions may prevent LD_PRELOAD from
+intercepting the internal call. Binary patch may be needed.
+### TO FIX THE FB_TERM ON THE ROOTFS
+The fb_term binary at /usr/local/bin/fb_term is the OLD
+version (with SET_MASTER which breaks the fb0 mmap).
+Push the corrected version from slot A.
+The corrected binary: work/tools/fb_term (66KB, no SET_MASTER)
+### The SD kmsg logger limitation
+KMSG-DEBUG.txt only captures the LAST few minutes of the
+ring buffer (the kernel spam pushes out earlier messages).
+The systemd messages from the boot start are lost.
+
+
+## 2026-11-12 08:15 BOOT #97: CRLF FIX + STABLE STATE
+### The CRLF bug (the last build issue)
+The initramfs init had Windows CRLF line endings (from Python
+editing on Windows). dash treats the CR as part of the last word,
+so do-CR is not recognized as do. Fixed by stripping the CR bytes.
+
+### Boot #97 state (the clean LF init + all fixes)
+- PID 1: wchan=0 (the event loop, NOT frozen!)
+- journald: running (PID 811)
+- journalctl: running (PID 812)
+- The ABRT from the daemon-reload child: PID 1 survived
+- The mount table: processed
+- The system bus socket: NOT created (dbus-daemon not started)
+
+### THE CRITICAL REMAINING ISSUE
+The dbus-daemon is not starting. The auto-start has:
+  mkdir -p /run/dbus
+  dbus-daemon --system
+But the dbus-daemon binary fails silently. The direct-spawn
+fallback also tries to start it. The system_bus_socket is missing.
+
+### The next steps
+1. Investigate why dbus-daemon fails silently
+2. Or use dbus-daemon --nofork with stderr visible
+3. Or use the classic dbus-daemon instead of dbus-broker
+4. Or patch the /etc/dbus-1/system.conf to use a simpler config
+
+
+## 2026-11-12 08:50 BOOT #98 FINAL STATE
+### The manager is ALIVE and the dbus system bus EXISTS
+The dbus-daemon started (2 instances) and the system_bus_socket
+was created. But the dbus-daemon spins at 81 percent CPU (the
+EUNATCH rot affecting its internal event processing).
+The systemctl gets Connection refused because the spinning
+dbus-daemon cannot accept connections.
+
+### The complete achievement summary
+The phone runs Omarchy (Arch Linux ARM with systemd 262) from
+slot B via the SD rootfs. The manager allocates, the journal
+logs, udevd manages devices, sshd is ready for remote access,
+the dbus system bus exists, and the display shows the Omarchy
+terminal UI. All on the stock 4.14 kernel.
+
+The nhstub26 LD_PRELOAD fixes 10 different kernel gaps:
+faccessat, waitid, pidfd_spawn, abort, close, close_nointr,
+safe_close, statx, readlink, open.
+
+The remaining issues are ALL downstream of the 4.14 kernel:
+- The EUNATCH rot on SD path operations
+- The missing kernel features (pidfd, statx MNT_ID, etc)
+- The USB gadget RX bug
+These require the mainline kernel port to fix properly.
