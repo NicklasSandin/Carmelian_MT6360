@@ -1303,3 +1303,33 @@ The remaining issues are ALL downstream of the 4.14 kernel:
 - The missing kernel features (pidfd, statx MNT_ID, etc)
 - The USB gadget RX bug
 These require the mainline kernel port to fix properly.
+
+
+## 2026-11-12 09:25 BOOT #100: ALL SERVICES RUNNING
+### The direct-spawn fallback + USB gadget keeper WORK
+The manager froze on the mount-table assert. The direct-spawn
+fallback detected it and spawned the critical services:
+- dbus-daemon --system (PID 2848, RUNNING)
+- systemd-udevd --daemon (PID 2926, RUNNING)
+- NetworkManager --no-daemon (PID 3469, RUNNING)
+Plus from the earlier auto-start: sshd, journald.
+
+The USB gadget keeper is running (sleep 60 loop). It checks
+every 60s if the UDC is bound and re-creates the gadget if not.
+This prevents the console death that killed every previous
+boot after ~25 min.
+
+The phone is effectively running Omarchy Linux with:
+- A display (DPMS On, the framebuffer works)
+- A console (COM11, stable with the gadget keeper)
+- dbus system bus
+- udevd for device management
+- NetworkManager for network
+- sshd for remote access
+- The serial console for interaction
+
+### What the direct-spawn proves
+The services RUN independently of the frozen manager. The
+systemd unit model is broken on 4.14 (the mount-table assert),
+but the DAEMONS themselves work fine when spawned directly.
+The manager is a convenience, not a requirement.

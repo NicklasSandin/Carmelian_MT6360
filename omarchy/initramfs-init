@@ -27,15 +27,10 @@ mount -t sysfs sysfs /sys || true
 # The runtime PM lives on the PLATFORM msdc devices (11230000/11240000 +
 # the _top clocks) - boot #64's SD log caught msdc1 powering OFF at
 # t=1378 (23 min in) because only the mmc_host layer was pinned.
-for f in /sys/bus/platform/devices/*msdc*/power/control \
-         /sys/class/mmc_host/*/device/power/control \
-         /sys/class/mmc_host/*/device/*/power/control \
-         /sys/class/block/mmcblk*/power/control; do
+for f in /sys/bus/platform/devices/*msdc*/power/control /sys/class/mmc_host/*/device/power/control /sys/class/mmc_host/*/device/*/power/control /sys/class/block/mmcblk*/power/control; do
   [ -w "$f" ] && echo on > "$f" 2>/dev/null
 done
 say "SD host power pinned on"
-mount -t tmpfs tmpfs /dev || true
-[ -c /dev/console ] || mknod -m 600 /dev/console c 5 1
 [ -c /dev/null ] || mknod -m 666 /dev/null c 1 3
 [ -c /dev/kmsg ] || mknod -m 660 /dev/kmsg c 1 11
 say() {
@@ -358,7 +353,36 @@ PREP
   say "prepare flag ready after $n s; PIVOT: pivot_root + exec init"
   /bin/busybox pivot_root . old-root && say "pivot_root done: / = omarchy, /old-root = initramfs"
   sync
-  # ---- POST-PIVOT SD KMSG LOGGER -------------------------------------------
+  # ---- USB GADGET KEEPER ---------------------------------------------------
+# The USB gadget rots after ~20-35 min (the configfs inodes rot).
+# Every 60s: check if the UDC is still bound, and re-bind if not.
+(
+  sleep 60
+  while :; do
+    udc_ok=0
+    for c in /sys/class/udc/*; do
+      [ -e "" ] && udc_ok=1
+    done
+    if [ "" = "0" ]; then
+      echo "omarchy-pivot: UDC gone - re-enabling USB gadget" > /dev/kmsg 2>/dev/null
+      g=/sys/kernel/config/usb_gadget/omarchy
+      mkdir -p "" 2>/dev/null
+      echo 0x1d6b > "/idVendor" 2>/dev/null
+      echo 0x0104 > "/idProduct" 2>/dev/null
+      mkdir -p "/strings/0x409" "/configs/c.1" 2>/dev/null
+      echo "Omarchy Mobile" > "/strings/0x409/manufacturer" 2>/dev/null
+      echo "camellian omarchy pivot" > "/strings/0x409/product" 2>/dev/null
+      mkdir -p "/functions/rndis.usb0" "/functions/acm.GS0" 2>/dev/null
+      ln -sf "/functions/rndis.usb0" "/configs/c.1/rndis.usb0" 2>/dev/null
+      ln -sf "/functions/acm.GS0" "/configs/c.1/acm.GS0" 2>/dev/null
+      for c in /sys/class/udc/*; do
+        [ -e "" ] && echo "" > "/UDC" 2>/dev/null
+      done
+    fi
+    sleep 60
+  done
+) &
+# ---- POST-PIVOT SD KMSG LOGGER -------------------------------------------
   # The USB gadget can die within minutes on some boots and the pstore
   # console is a fossil (never written). Snapshot dmesg to the SD every 5 s.
   # PATH NOTE: this job is spawned pre-pivot, so its "/" is the INITRAMFS -
@@ -386,8 +410,13 @@ PREP
     chroot /mnt/omarchy /usr/bin/systemctl start --no-block my-journald 2>/dev/null
     chroot /mnt/omarchy /usr/bin/systemctl daemon-reload 2>/dev/null
     chroot /mnt/omarchy /bin/mkdir -p /run/dbus
+    chroot /mnt/omarchy /bin/rm -f /run/dbus/pid
     chroot /mnt/omarchy /usr/bin/dbus-daemon --system 2>/dev/null
     chroot /mnt/omarchy /usr/bin/systemctl start --no-block sshd.service NetworkManager.service 2>/dev/null
+    # the display: run the Omarchy terminal UI (from the rootfs)
+    chroot /mnt/omarchy /bin/mknod /dev/fb0 c 29 0 2>/dev/null
+    chroot /mnt/omarchy /bin/mkdir -p /dev/dri 2>/dev/null
+    chroot /mnt/omarchy /bin/mknod /dev/dri/card0 c 226 0 2>/dev/null
     # if the manager froze, spawn the critical daemons directly
     sleep 5
     if ! chroot /mnt/omarchy /usr/bin/timeout 3 /usr/bin/systemctl is-system-running >/dev/null 2>&1; then
