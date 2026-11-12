@@ -354,41 +354,55 @@ PREP
   say "prepare flag ready after $n s; PIVOT: pivot_root + exec init"
   /bin/busybox pivot_root . old-root && say "pivot_root done: / = omarchy, /old-root = initramfs"
   sync
-  # ---- USB GADGET KEEPER ---------------------------------------------------
-# The USB gadget rots after ~20-35 min (the configfs inodes rot).
-# Every 60s: check if the UDC is still bound, and re-bind if not.
-(
-  sleep 60
-  while :; do
-    udc_ok=0
-    for c in /sys/class/udc/*; do
-      [ -e "" ] && udc_ok=1
-    done
-    if [ "" = "0" ]; then
-      echo "omarchy-pivot: UDC gone - re-enabling USB gadget" > /dev/kmsg 2>/dev/null
-      g=/sys/kernel/config/usb_gadget/omarchy
-      mkdir -p "" 2>/dev/null
-      echo 0x1d6b > "/idVendor" 2>/dev/null
-      echo 0x0104 > "/idProduct" 2>/dev/null
-      mkdir -p "/strings/0x409" "/configs/c.1" 2>/dev/null
-      echo "Omarchy Mobile" > "/strings/0x409/manufacturer" 2>/dev/null
-      echo "camellian omarchy pivot" > "/strings/0x409/product" 2>/dev/null
-      mkdir -p "/functions/rndis.usb0" "/functions/acm.GS0" 2>/dev/null
-      ln -sf "/functions/rndis.usb0" "/configs/c.1/rndis.usb0" 2>/dev/null
-      ln -sf "/functions/acm.GS0" "/configs/c.1/acm.GS0" 2>/dev/null
-      for c in /sys/class/udc/*; do
-        [ -e "" ] && echo "" > "/UDC" 2>/dev/null
-      done
-    fi
+  # ---- USB GADGET KEEPER -----------------------------------------------------
+  # The USB gadget rots after ~20-35 min (the configfs inodes rot).
+  # Every 60s: check if the UDC is still bound, and re-create the gadget if not.
+  # The keeper runs from the ROOTFS context where /sys/kernel/config is an
+  # empty dir - mount configfs THERE so the re-create branch actually works.
+  (
+    mount -t configfs configfs /sys/kernel/config 2>/dev/null
     sleep 60
-  done
-) &
+    while :; do
+      udc_ok=0
+      for c in /sys/class/udc/*; do
+        [ -e "$c" ] && udc_ok=1
+      done
+      if [ "$udc_ok" = "0" ]; then
+        echo "omarchy-pivot: UDC gone - re-enabling USB gadget" > /dev/kmsg 2>/dev/null
+        g=/sys/kernel/config/usb_gadget/omarchy
+        mkdir -p "$g" 2>/dev/null
+        echo 0x1d6b > "$g/idVendor" 2>/dev/null
+        echo 0x0104 > "$g/idProduct" 2>/dev/null
+        mkdir -p "$g/strings/0x409" "$g/configs/c.1" 2>/dev/null
+        echo "Omarchy Mobile" > "$g/strings/0x409/manufacturer" 2>/dev/null
+        echo "camellian omarchy pivot" > "$g/strings/0x409/product" 2>/dev/null
+        mkdir -p "$g/functions/rndis.usb0" "$g/functions/acm.GS0" 2>/dev/null
+        ln -sf "$g/functions/rndis.usb0" "$g/configs/c.1/rndis.usb0" 2>/dev/null
+        ln -sf "$g/functions/acm.GS0" "$g/configs/c.1/acm.GS0" 2>/dev/null
+        for c in /sys/class/udc/*; do
+          [ -e "$c" ] && echo "${c##*/}" > "$g/UDC" 2>/dev/null
+        done
+      fi
+      sleep 60
+    done
+  ) &
 # ---- DISPLAY: the Omarchy terminal UI (fb_term3 ships in the initramfs) ---
 # /dev/fb0 + mmap + draw. Unblanks by itself. Redraws every 8s forever.
+# (fb_term4 - the live pty/pipe terminal - is parked: the devpts on this
+# kernel is broken and the pipe fds came back zero. The touch = the
+# Goodix daemon hole. Revisit after the Wi-Fi/SSH path exists.)
 (
   sleep 6
   mknod /dev/fb0 c 29 0 2>/dev/null
   /fb_term3 > /fb3.log 2>&1 &
+) &
+# ---- TOUCH COLLECTORS: capture the raw touch events for the diagnosis ------
+# Armed 30s after the pivot; any touch after that lands in /tevents2/3.
+(
+  sleep 30
+  [ -c /dev/input/event2 ] || mdev -s 2>/dev/null || true
+  dd if=/dev/input/event2 bs=24 count=80 of=/tevents2 2>/dev/null &
+  dd if=/dev/input/event3 bs=24 count=80 of=/tevents3 2>/dev/null &
 ) &
 # ---- POST-PIVOT SD KMSG LOGGER -------------------------------------------
   # The USB gadget can die within minutes on some boots and the pstore

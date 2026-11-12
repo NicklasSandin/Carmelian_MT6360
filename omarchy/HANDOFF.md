@@ -1468,3 +1468,44 @@ The display: fb_term3 (the Omarchy terminal UI) at T+6s, redraw 8s.
 The console: the pre-pivot ghost getty ONLY (HUP-immune since #117).
 The keeper: the fixed variable version, re-creates the gadget.
 Everything ships in boot_pivot_inplace_v0sha.img. THE END.
+
+
+## 2026-11-12 22:00 SESSION CLOSE: BOOT #132 = THE SHIPPING BUILD
+### The final architecture (all verified on boot #127/#132)
+- PID 1 = pid1 (the immortal reaper, chroot+copy trick, boot #127)
+- No systemd manager = no mount-table SEGV = no crash bomb.
+- The daemons: dbus, NM, journald direct-spawned + the 5-min healer.
+- The display: fb_term3 (the Omarchy terminal UI), redraw 8s.
+- The console: the pre-pivot ghost getty, single reader, HUP-immune.
+- The keeper: the variable-fixed + the configfs mount in the rootfs.
+- The SD: the card dies every ~5h of uptime; the RESEAT = the revival
+  ritual (worked 2x today). The clone = C:/Temp/sdcard.img (29.75GB,
+  verified complete) = ready to dd onto ANY new card.
+### fb_term4 (the live terminal) = PARKED with full evidence
+- The wall #1: devpts on this 4.14 kernel is BROKEN - the pty
+  master/slave never flow in either direction (boots #124-#129,
+  the /dev/pts/ptmx newinstance = the nodes exist, the data = dead).
+- The wall #2: aarch64 has NO fork (1079 = ENOSYS) and NO dup2
+  (33 = ENOSYS) - ONLY clone (220) and dup3 (24). The reaper logged
+  the child exit code 0 = the sh exited on the closed stdio.
+- The wall #3: the touch = a GOODIX panel = uinput-goodix (input4)
+  = an ANDROID userspace daemon feeds it - no daemon = no touch.
+  (input2 = fts_ts exists but emits NOTHING - the panel = Goodix.)
+- The wall #4: the fbdev mmap = ENOMEM forever after ANY fb process
+  releases it - the fb_term updates = a reboot each. The mmap chain
+  fallback does not help.
+- The pipe pivot (the pipe2 = 291 = works): the fds came back 0 =
+  the fd table state on this kernel = chaotic post-close(0/1/2).
+  THE LESSON: the fb_term4 child stdio = NEVER trust the inherited
+  fds - but even the fix = the fd chaos = deeper water.
+### THE NEXT SESSION = THE ORDER (the user approved 1-5)
+1. Wi-Fi (deploy_wifi.ps1 exists; NM = running; the firmware + the
+   interface up = the work). 2. SSH = the REAL terminal input over
+   the network - bypasses the serial/the touch entirely. Then the
+   display = the SSH output mirror = the live terminal THE EASY WAY.
+3. The charging check (the MT6360). 4. The mainline kernel (camellia)
+   = fixes devpts + the touch + everything kernel-shaped.
+### The session stats: boots #100-#132 (33 boots), 3 root causes
+ unearthed (the SD death, the pivot_root illusion, the keeper vars),
+ 2 syscall traps documented (no fork, no dup2 on aarch64), 1 card
+ clone secured. The phone = ALIVE and STABLE on boot #132.
