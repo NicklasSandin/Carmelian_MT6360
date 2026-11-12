@@ -1435,3 +1435,36 @@ the display and a stable serial console. The slot-B success flag
 in misc is still unwritten (the boot never marks success) - if the
 phone EVER falls back to slot A, key combo -> fastboot ->
 set_active b x3 -> reboot. With no crashes, the counter never drains.
+
+
+## 2026-11-12 14:55 BOOT #118: FINAL BUILD - THE COMPLETE SYSTEM
+### The daemon healer
+The one-shot T+90s retry became a HEALER: every 300s it pgrep-checks
+udevd/sshd/dbus/NM/journald and respawns the missing. The SD rot comes
+in bursts - the healer pushes spawns through them over time (boot
+#118: udevd attempted T+104s, sshd attempted T+145s).
+### The misc boot-control write: ABANDONED (and why it is not needed)
+The misc partition = /dev/sdc1 (the UFS! this phone has UFS storage,
+not eMMC: the GPT = on /dev/sdc; the SD = /dev/mmcblk0). The boot-
+control struct at misc offset 2048: slot_suffix=_b, magic=BCAB,
+version=1 nb_slot=2, slot A meta = 9e 00 6f 00 (the known-good), 
+slot B meta = 00 00 00 00 (never marked successful).
+The write fails: dd -> EPERM even after blockdev --setrw on BOTH
+/dev/sdc and /dev/sdc1 (the UFS guard re-arms every 5s anyway). The
+EPERM = the UFS firmware-level write protect set by the LK.
+IT DOES NOT MATTER: with the immortal pid1, boots never fail -> the
+retry counter never drains -> no slot-A fallback. The manual ritual
+(if EVER needed): key combo -> fastboot -> set_active b x3 -> reboot.
+### Gotchas hit on the way (all real, all documented)
+- The UFS guard: the init BLKROSETs every sd* device every 5s.
+- /tmp does NOT exist in the initramfs (use /ameta-style root paths).
+- The misc boot_control = at offset 2048 (the first dd forgot it).
+- The dump order trick: dd the GPT entries | tr -d 0 | read names.
+### THE FINAL ARCHITECTURE (boot #118, the shipping build)
+PID 1 = pid1 (the wait4 reaper, 4.4KB, chroot + copy trick)
+NO systemd manager - no mount-table SEGV - no crash bomb - ever.
+Direct-spawn + the healer: dbus, NM, journald, udevd, sshd.
+The display: fb_term3 (the Omarchy terminal UI) at T+6s, redraw 8s.
+The console: the pre-pivot ghost getty ONLY (HUP-immune since #117).
+The keeper: the fixed variable version, re-creates the gadget.
+Everything ships in boot_pivot_inplace_v0sha.img. THE END.
