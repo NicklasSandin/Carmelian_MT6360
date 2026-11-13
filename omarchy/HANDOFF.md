@@ -1557,3 +1557,26 @@ rboot.b64 (the base64 of the compiled rboot) = decoded to rboot_bin
 3. The touch = the Goodix daemon research (uinput-goodix = input4)
 4. The charging (the MT6360)
 5. The mainline kernel (camellia) = the fixes for devpts/the touch/all
+
+
+## 2026-11-13 13:45 THE CARD MIGRATION = COMPLETE (boot #131 on the 16GB card)
+### The dying 32GB card = RETIRED. The new 16GB card = THE ROOTFS.
+The migration procedure (all on the PC, the phone untouched):
+1. The old card = the byte-exact clone -> C:/Temp/sdcard.img (29.75GB)
+2. The fresh 16GB image = C:/Temp/card16.img (fsutil createnew)
+3. WSL loop mounts: card16.img = loop0, sdcard.img p1 (offset 1MB) =
+   loop1; mkfs.ext4 -F loop0; THE TAR PIPE: the clone rootfs -> the new
+   (3m40s for 8.5GB over the 9p)
+4. The raw write: card16.img -> the card (the elevated .NET, 19.7 min)
+5. The card -> the phone -> the boot = EVERYTHING WORKED FIRST TRY
+### The new card state (verified)
+- /dev/mmcblk0p1 = 10.7G, 8.2G used, 2.3G free - the FRESH ext4
+- The whole-disk ext4 = the init third candidate = the no-partition-
+  table layout works (the loop0 = mkfs whole-disk)
+- The journald = volatile (the sed = re-applied every boot by the init)
+- The WSL loop-mount technique = THE TOOL for any future card surgery
+  (no elevation for the file ops!; the --bare physical attach = flaky
+  on the Realtek reader; the WSL session kills = use the foreground)
+### The remaining roadmap = unchanged
+1. Wi-Fi 2. SSH (the real terminal input) 3. The Goodix touch
+ 4. The charging 5. The mainline kernel
