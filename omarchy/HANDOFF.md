@@ -1580,3 +1580,37 @@ The migration procedure (all on the PC, the phone untouched):
 ### The remaining roadmap = unchanged
 1. Wi-Fi 2. SSH (the real terminal input) 3. The Goodix touch
  4. The charging 5. The mainline kernel
+
+
+## 2026-11-13 15:30 THE Wi-Fi WALL = DOCUMENTED. THE STOCK KERNEL = THE DEAD END FOR NETWORKING
+### The three locked doors
+1. The Wi-Fi modules = /vendor/lib/modules (wlan_drv_gen4m.ko + wmt_drv.ko
+   + wmt_chrdev_wifi.ko + connfem.ko) = SELinux-blocked from adb (the
+   shell = Permission denied on every file).
+2. The vendor partition = INSIDE the super (sdc58 = 8.9GB) = the LP
+   metadata DECODED (the liblp: the extents = 24 bytes {num u64, data
+   u64, type u32, source u32}; the vendor_a = the size 0x10ae98 sectors
+   = 535MB at the super offset 0x354c00 sectors = 1.79GB). THE EXTRACTED
+   BYTES = RANDOM NOISE = the vendor = ENCRYPTED (the dm-crypt, the key
+   = Android-only). NO ext4/erofs magic. THE MODULES = UNREACHABLE.
+3. The USB gadget RX = broken (the MTK bug) = the USB networking = dead.
+### THE CONCLUSION
+The networking = IMPOSSIBLE on the stock 4.14 kernel: the Wi-Fi = the
+ encrypted modules, the USB = the broken RX, the BT = the same modules.
+ THE MAINLINE KERNEL PORT (the camellia) = THE ONLY FIX: the mainline
+ mt76 = the Wi-Fi, the proper USB = the RX, the devpts = the working,
+ the Goodix = the upstream driver, the fbcon = the possible.
+### The LP parsing technique (for the record)
+The super metadata = /suph (the dd 2MB from sdc58): the strings -t d =
+ the partition names + the offsets; the entries = 52 bytes = the name
+ [36] + the 4 u32s; the extents = 24 bytes = {num u64, data u64, type
+ u32, source u32}; the UFS = the 4K sectors for the dd (the skip in
+ the bs units!); /tmp = does not exist in the initramfs (use /).The
+ adb = the slot A = the shell = the SELinux = the vendor = denied;
+ the adb pull = 0 files (the stat = denied).
+### The phone state at the session close
+Slot A = Android (the Wi-Fi discovery boot). The slot B = boot #134
+ (the #132 stable image + the card gate). The next boot = set_active b
+ + reboot = the Omarchy = the #135 behavior (the volatile journal).
+ The new 16GB card = the rootfs = LIVE (the migration = complete).
+ The session = boots #132-#137 + the card migration + the Wi-Fi wall.
