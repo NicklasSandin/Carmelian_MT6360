@@ -221,6 +221,18 @@ else
   say "rootfs verification FAILED"
 fi
 
+# ---- CARD LIFE EXTENSION: the dying card = the write wear kills it -------
+# (a) journald = VOLATILE storage (the journal = RAM, zero SD writes)
+# (b) the kmsg logger interval = 60s (below)
+if [ "$OMARCHY_OK" = "1" ]; then
+  if grep -q '^#\?Storage=' /mnt/omarchy/etc/systemd/journald.conf 2>/dev/null; then
+    sed -i 's/^#\?Storage=.*/Storage=volatile/' /mnt/omarchy/etc/systemd/journald.conf 2>/dev/null
+  else
+    echo "Storage=volatile" >> /mnt/omarchy/etc/systemd/journald.conf 2>/dev/null
+  fi
+  say "journald set to volatile storage (the card life extension)"
+fi
+
 # ---- CARD WRITE GATE: a dying card mounts read-only-ish and floods the ----
 # console with WRITE-BLOCKED all boot long. Probe the write ONCE: if the
 # card cannot take a write, jump to fastboot via rboot - the card needs a
@@ -434,7 +446,7 @@ PREP
     while :; do
       /bin/busybox dmesg > /mnt/omarchy/KMSG-DEBUG.txt 2>/dev/null
       /bin/busybox sync
-      sleep 5
+      sleep 60
     done
   ) &
   # ---- POST-PIVOT SERVICE AUTO-START (no manager - direct spawn) ------------

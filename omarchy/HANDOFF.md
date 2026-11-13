@@ -1532,3 +1532,28 @@ The card = the INTERMITTENT writer: the write-block = the transient
 rboot.b64 (the base64 of the compiled rboot) = decoded to rboot_bin
  (1088 bytes) and shipped in the initramfs as /rboot. The rescue
  ceiling + the card gate + the future guards = all call /rboot.
+
+
+## 2026-11-13 08:45 BOOT #135: THE CARD LIFE EXTENSION = ACTIVE
+### The dying card = the write wear - the writes = eliminated
+- journald.conf: Storage=volatile (the sed from the init) - the
+  journal = /run/log/journal = RAM (VERIFIED: the machine-id dir
+  exists in /run, /var/log/journal = EMPTY)
+- The kmsg logger: 5s -> 60s (12x less)
+- The remaining SD writes = the boot-time only (~1-2MB) + the rare
+  manual writes. THE CARD = read-mostly = the life = weeks not hours.
+### The session-end state (boot #135 = the shipping build)
+- The immortal PID 1 (the chroot+copy trick), no manager, no bombs
+- The display: fb_term3 (the terminal UI), the console: the ghost getty
+- The daemons: dbus/NM/journald + the healer (5 min passes)
+- The card: the write gate + the volatile journal + the 60s kmsg
+- The escapes: the write gate -> rboot; the mount hang -> the rescue;
+  the rescue 600s -> rboot; rboot ships in the initramfs
+- The clone: C:/Temp/sdcard.img = the full 29.75GB image = ready for
+  the new card (the raw dd write = the complete restore)
+### The next session = the user-approved order
+1. Wi-Fi (NM = running; the firmware + the interface = the work)
+2. SSH = the real terminal input (the display = the output mirror)
+3. The touch = the Goodix daemon research (uinput-goodix = input4)
+4. The charging (the MT6360)
+5. The mainline kernel (camellia) = the fixes for devpts/the touch/all
