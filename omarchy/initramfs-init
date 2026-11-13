@@ -221,6 +221,24 @@ else
   say "rootfs verification FAILED"
 fi
 
+# ---- CARD WRITE GATE: a dying card mounts read-only-ish and floods the ----
+# console with WRITE-BLOCKED all boot long. Probe the write ONCE: if the
+# card cannot take a write, jump to fastboot via rboot - the card needs a
+# swap or a rewrite, and there is nothing to gain from a half-dead boot.
+if [ "$OMARCHY_OK" = "1" ]; then
+  rm -f /mnt/omarchy/.wgate
+  echo probe > /mnt/omarchy/.wgate 2>/dev/null
+  sync
+  if [ "$(cat /mnt/omarchy/.wgate 2>/dev/null)" != "probe" ]; then
+    say "CARD IS WRITE-BLOCKED (dying) - jumping to fastboot for the card swap"
+    echo "omarchy-pivot: card write-blocked - rboot to fastboot" > /dev/kmsg 2>/dev/null
+    sync
+    sleep 3
+    /rboot 2>/dev/null || reboot -f
+    sleep 600
+  fi
+fi
+
 # ---- checkpoint: the initramfs-phase kernel log onto the SD ---------------
 # If any later phase hangs or the USB gadget dies, this file (readable from
 # slot A via vold) shows exactly how far the boot got.
@@ -510,8 +528,8 @@ say "auto-reboot to fastboot in 600 s"
   sleep 600
   sync
   say "rescue ceiling reached; rebooting to bootloader"
-  echo "omarchy-pivot: rescue 600s ceiling - rebooting" > /dev/kmsg 2>/dev/null
-  /sbin/reboot-bootloader 2>/dev/null || reboot -f
+  echo "omarchy-pivot: rescue 600s ceiling - rboot to fastboot" > /dev/kmsg 2>/dev/null
+  /rboot 2>/dev/null || reboot -f
 ) &
 # PID 1 must never exit
 while :; do

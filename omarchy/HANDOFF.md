@@ -1509,3 +1509,26 @@ Everything ships in boot_pivot_inplace_v0sha.img. THE END.
  unearthed (the SD death, the pivot_root illusion, the keeper vars),
  2 syscall traps documented (no fork, no dup2 on aarch64), 1 card
  clone secured. The phone = ALIVE and STABLE on boot #132.
+
+
+## 2026-11-13 08:15 BOOT #134: THE ONCE-AND-FOR-ALL BUILD
+### The power-press eliminator (all four failure modes = auto-fastboot)
+1. THE CARD WRITE GATE: after the rootfs mount, ONE write probe -
+   if the card cannot take a write (the WRITE-BLOCKED death mode),
+   rboot jumps to fastboot IMMEDIATELY. No half-alive flood boots.
+2. THE MOUNT HANG GUARD (pre-existing): the SD mount = a 45s
+   bounded background mount - a D-state card cannot hang the boot.
+3. THE RESCUE CEILING: the 600s rescue now uses rboot (RESTART2) -
+   the old path = reboot-bootloader (missing) -> reboot -f = a loop.
+4. rboot (1088 bytes, sha256 98e6bf4d) ships IN the initramfs = the
+   RESTART2 fastboot entry is always available.
+### The card status
+The card = the INTERMITTENT writer: the write-block = the transient
+ state (the fresh power-on = revives it; the long uptime = kills it).
+ The boot #133 = flooded; the boot #134 = clean (the gate = passed).
+ The card WILL die permanently - the clone = C:/Temp/sdcard.img
+ (29.75GB, byte-exact) = ready for ANY new card (dd it raw).
+### The rboot deployment note
+rboot.b64 (the base64 of the compiled rboot) = decoded to rboot_bin
+ (1088 bytes) and shipped in the initramfs as /rboot. The rescue
+ ceiling + the card gate + the future guards = all call /rboot.
